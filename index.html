@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Practice Trial Preview</title>
+    <!-- Use the same jsPsych CSS as the working project -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/jspsych@7.3.4/css/jspsych.css"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="jspsych-target">
+      <div style="color:#000;text-align:center;padding:3rem;font-family:Arial, sans-serif;">
+        <h1>Loading practice trialâ€?/h1>
+        <p>If this message remains, please check the browser console for errors.</p>
+      </div>
+    </div>
+
+    <!-- jsPsych core (CDN) provides global initJsPsych -->
+    <script src="https://unpkg.com/jspsych@7.3.4"></script>
+
+    <!-- Plugin bundles matching the core version -->
+    <script src="https://unpkg.com/@jspsych/plugin-preload@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-keyboard-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-slider-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-html-button-response@1.1.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-survey-html-form@1.0.3"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-fullscreen@1.2.1"></script>
+    <script src="https://unpkg.com/@jspsych/plugin-browser-check@1.0.3"></script>
+  <script src="https://unpkg.com/@jspsych/plugin-call-function@1.1.3"></script>
+
+    <!-- Load generated stimuli data (defines window.STIMULI_DATA) -->
+    <script src="./stimuli.js"></script>
+
+    <!-- Practice logic (plain script, no modules) -->
+    <script src="./experiment.js"></script>
+  </body>
+</html>

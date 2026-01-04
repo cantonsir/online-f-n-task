@@ -1,0 +1,21 @@
+{
+  "name": "practice-trial",
+  "version": "0.1.0",
+  "description": "Standalone jsPsych slider practice trial for browser-based pilots (e.g., Prolific).",
+  "scripts": {
+    "serve": "npx http-server -c-1"
+  },
+  "keywords": [
+    "jspsych",
+    "psychophysics",
+    "practice",
+    "prolific"
+  ],
+  "author": "",
+  "license": "MIT",
+  "main": "experiment.js",
+  "type": "commonjs",
+  "dependencies": {
+    "jspsych": "^8.2.2"
+  }
+}
