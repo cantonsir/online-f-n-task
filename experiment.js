@@ -1,10 +1,193 @@
+function getUrlParam(name) {
+  try {
+    return jsPsych?.data?.getURLVariable?.(name) ?? null;
+  } catch {
+    const params = new URLSearchParams(window.location.search);
+    return params.get(name);
+  }
+}
+
+function hasUrlFlag(name) {
+  const v = getUrlParam(name);
+  if (v === null) return false;
+  if (v === '' || v === '1' || v.toLowerCase() === 'true') return true;
+  return false;
+}
+
+// === Prolific + saving configuration ===
+// 1) Put your Google Apps Script (or other) endpoint here.
+// Leave null to disable server saving and only download locally.
+const DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24GqUkPeXqXpglNaCzmyhxCjY34ADFONUHVwwaiHf0ki7n3robQlFmYqQA/exec';
+
+// 2) Put your Prolific completion code here.
+// You can also provide it as a URL param: ?cc=XXXXXX
+// const PROLIFIC_COMPLETION_CODE = 'C165LFSB';
+const PROLIFIC_COMPLETION_CODE = null;
+
+function prolificCompleteUrl(completionCode) {
+  if (!completionCode) return null;
+  return `https://app.prolific.com/submissions/complete?cc=${encodeURIComponent(completionCode)}`;
+}
+
+function isGoogleAppsScriptUrl(url) {
+  return typeof url === 'string' && url.includes('script.google.com/macros/s/');
+}
+
+// Standard JSON POST (requires proper CORS headers from the server)
+async function postJsonCors(url, payload) {
+  const res = await fetch(url, {
+    method: 'POST',
+    mode: 'cors',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Save failed (${res.status}): ${text || res.statusText}`);
+  }
+
+  return await res.text().catch(() => '');
+}
+
+// Google Apps Script web apps typically don't include Access-Control-Allow-Origin.
+// We send a "no-cors" request with a plain-text JSON body so the server can still parse it.
+// Note: the browser cannot read the response (opaque), so we treat "request sent" as success.
+async function postJsonNoCorsText(url, payload) {
+  await fetch(url, {
+    method: 'POST',
+    mode: 'no-cors',
+    body: JSON.stringify(payload)
+  });
+  return 'opaque_no_cors_request_sent';
+}
+
+async function runSaveSmokeTest() {
+  const el = document.getElementById('jspsych-target');
+  if (el) {
+    el.innerHTML = `
+      <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
+        <h2>Save Smoke Test</h2>
+        <p>Posting a small test payload to your server…</p>
+      </div>
+    `;
+  }
+
+  if (!DATA_SUBMIT_URL) {
+    if (el) {
+      el.innerHTML = `
+        <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
+          <h2>Save Smoke Test</h2>
+          <p><strong>Error:</strong> DATA_SUBMIT_URL is not configured.</p>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  const prolific_pid = getUrlParam('PROLIFIC_PID') || 'smoke_test_pid';
+  const study_id = getUrlParam('STUDY_ID') || 'smoke_test_study';
+  const session_id = getUrlParam('SESSION_ID') || `smoke_${Math.random().toString(16).slice(2)}`;
+  const started_at = new Date().toISOString();
+
+  const payload = {
+    prolific_pid,
+    study_id,
+    session_id,
+    started_at,
+    finished_at: new Date().toISOString(),
+    user_agent: navigator.userAgent,
+    url: window.location.href,
+    data_csv: 'trial_type,task,rt\nsmoke_test,save,0',
+    data_json: [
+      {
+        trial_type: 'smoke_test',
+        task: 'save',
+        utc_start: started_at,
+        utc_end: new Date().toISOString(),
+        rt: 0
+      }
+    ]
+  };
+
+  try {
+    const responseText = isGoogleAppsScriptUrl(DATA_SUBMIT_URL)
+      ? await postJsonNoCorsText(DATA_SUBMIT_URL, payload)
+      : await postJsonCors(DATA_SUBMIT_URL, payload);
+    console.debug('[DEBUG] smoke test save ok:', responseText);
+    if (el) {
+      const isAppsScript = isGoogleAppsScriptUrl(DATA_SUBMIT_URL);
+      el.innerHTML = `
+        <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
+          <h2>Save Smoke Test</h2>
+          <p><strong>${isAppsScript ? 'Request sent.' : 'Success.'}</strong> ${isAppsScript ? 'For Google Apps Script, the browser cannot confirm success (no-cors).' : 'The server responded OK.'}</p>
+          <p>Check your Google Sheet for a new row and your Drive folder for a new <code>.json</code> file.</p>
+          <p style="margin-top:.75rem; font-size:.95rem; opacity:.9;">
+            If nothing appears, open Apps Script → <strong>Executions</strong> to see the error (common causes: missing authorization for Drive/Sheets, or you edited the script but didn’t <strong>Deploy → New deployment</strong> / redeploy).
+          </p>
+        </div>
+      `;
+    }
+  } catch (err) {
+    console.error('[ERROR] smoke test save failed', err);
+    if (el) {
+      el.innerHTML = `
+        <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
+          <h2>Save Smoke Test</h2>
+          <p><strong>Failed.</strong> Open DevTools → Console for details.</p>
+          <p>${String(err?.message || err)}</p>
+        </div>
+      `;
+    }
+  }
+}
+
+async function saveAllDataToServer(jsPsychInstance) {
+  if (!DATA_SUBMIT_URL) return { ok: false, skipped: true, message: 'DATA_SUBMIT_URL not configured' };
+
+  const prolific_pid = jsPsychInstance.data.getURLVariable('PROLIFIC_PID') || null;
+  const study_id = jsPsychInstance.data.getURLVariable('STUDY_ID') || null;
+  const session_id = jsPsychInstance.data.getURLVariable('SESSION_ID') || null;
+  const started_at = jsPsychInstance.data.get().first(1).values()?.[0]?.utc_start || null;
+  const finished_at = new Date().toISOString();
+
+  const payload = {
+    prolific_pid,
+    study_id,
+    session_id,
+    started_at,
+    finished_at,
+    user_agent: navigator.userAgent,
+    url: window.location.href,
+    data_csv: jsPsychInstance.data.get().csv(),
+    data_json: jsPsychInstance.data.get().values()
+  };
+
+  if (isGoogleAppsScriptUrl(DATA_SUBMIT_URL)) {
+    const serverResponse = await postJsonNoCorsText(DATA_SUBMIT_URL, payload);
+    return { ok: true, skipped: false, message: serverResponse, note: 'Apps Script no-cors: verify by checking Sheet/Drive' };
+  }
+
+  const serverResponse = await postJsonCors(DATA_SUBMIT_URL, payload);
+  return { ok: true, skipped: false, message: serverResponse };
+}
+
+function showSavingScreen(messageHtml) {
+  const el = document.getElementById('jspsych-target');
+  if (!el) return;
+  el.innerHTML = `
+    <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
+      <h2>Saving your responses</h2>
+      <p>Please do not close this tab.</p>
+      <div style="margin-top:1rem;opacity:.9;">${messageHtml || ''}</div>
+    </div>
+  `;
+}
+
 // Initialize jsPsych
 const jsPsych = initJsPsych({
   display_element: 'jspsych-target',
   on_data_update: function(data) {
-    // If you have a server, you can save data here trial-by-trial to handle dropout
-    // saveData(data);
-
     // Debug: helps confirm rating trials are being written.
     if (data?.task === 'rating') {
       console.debug('[DEBUG] rating saved', {
@@ -17,13 +200,59 @@ const jsPsych = initJsPsych({
       });
     }
   },
-  on_finish: () => {
-    // In a real deployment, you might redirect to Prolific here:
-    // window.location = "https://app.prolific.co/submissions/complete?cc=YOUR_CODE";
-    
-    // For now, we download the data locally
-    const subject_id = jsPsych.data.getURLVariable('PROLIFIC_PID') || 'test_subject';
-    jsPsych.data.get().localSave('csv', `data_${subject_id}.csv`);
+  on_finish: async () => {
+    const prolific_pid = jsPsych.data.getURLVariable('PROLIFIC_PID') || 'test_subject';
+    const completionCode = getUrlParam('cc') || PROLIFIC_COMPLETION_CODE;
+    const completionUrl = prolificCompleteUrl(completionCode);
+
+    if (DATA_SUBMIT_URL) {
+      const note = isGoogleAppsScriptUrl(DATA_SUBMIT_URL)
+        ? 'Uploading data… (Apps Script no-cors: if Sheet/Drive stay empty, check Apps Script → Executions for errors)'
+        : 'Uploading data to the server…';
+      showSavingScreen(note);
+    } else {
+      showSavingScreen('Server saving is not configured; downloading a local file instead.');
+    }
+
+    let saved = false;
+    try {
+      const result = await saveAllDataToServer(jsPsych);
+      saved = result.ok === true;
+      if (result.skipped) {
+        console.warn('[WARN] server save skipped:', result.message);
+      } else {
+        console.debug('[DEBUG] server save ok:', result.message);
+      }
+    } catch (e) {
+      console.error('[ERROR] server save failed', e);
+    }
+
+    // Fallback: local download (useful for piloting, not reliable for Prolific)
+    if (!saved) {
+      try {
+        jsPsych.data.get().localSave('csv', `data_${prolific_pid}.csv`);
+      } catch (e) {
+        console.error('[ERROR] localSave failed', e);
+      }
+    }
+
+    // Redirect to Prolific completion page if we have a completion code.
+    if (completionUrl) {
+      window.location.href = completionUrl;
+      return;
+    }
+
+    // If no completion code configured, show a clear end screen.
+    const el = document.getElementById('jspsych-target');
+    if (el) {
+      el.innerHTML = `
+        <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
+          <h2>Finished</h2>
+          <p>Your responses have been recorded.</p>
+          <p><strong>Researcher note:</strong> set PROLIFIC_COMPLETION_CODE or add ?cc=XXXX to the URL to redirect participants back to Prolific.</p>
+        </div>
+      `;
+    }
   }
 });
 
@@ -834,7 +1063,35 @@ async function main() {
     async: false,
     data: { trial_type: "build_plan" },
     func: () => {
-      const plan = buildExperimentPlan(stimuli, participantProfile);
+      let plan = buildExperimentPlan(stimuli, participantProfile);
+
+      // Optional: restrict the run to one category or one set for testing.
+      // Examples:
+      //   ?only_category=face
+      //   ?only_category=geometry
+      //   ?only_category=natural_scene
+      //   ?only_set=Simple-symmetric
+      //   ?only_set=Female-asian-adult-neutral
+      const onlyCategory = getUrlParam('only_category');
+      const onlySet = getUrlParam('only_set');
+
+      if (onlyCategory) {
+        const onlyCatNorm = normalizeCategory(onlyCategory);
+        plan = plan.filter(p => normalizeCategory(p.category) === onlyCatNorm);
+      }
+
+      if (onlySet) {
+        const onlySetNorm = normalizeCategory(onlySet);
+        plan = plan.filter(p => normalizeCategory(p.set_id) === onlySetNorm);
+      }
+
+      console.debug('[DEBUG] experiment plan', {
+        only_category: onlyCategory,
+        only_set: onlySet,
+        total_sets: plan.length,
+        sets: plan.map(p => ({ category: p.category, set_id: p.set_id }))
+      });
+
       const builtTimeline = plan.flatMap(setInfo => buildSetTimelineEntries(setInfo, ratingCache));
       builtTimeline.push(outroBlock, exitFullscreenBlock);
       jsPsych.addNodeToEndOfTimeline({ timeline: builtTimeline });
@@ -844,13 +1101,17 @@ async function main() {
   await jsPsych.run(timeline);
 }
 
-main().catch((error) => {
-  document.getElementById('jspsych-target').innerHTML = `
-    <div style="max-width:600px;margin:4rem auto;text-align:center;color:#fff;">
-      <h2>Setup error</h2>
-      <p>${error.message}</p>
-      <p>Double-check that <code>stimuli_manifest.json</code> exists and is reachable.</p>
-    </div>
-  `;
-  console.error(error);
-});
+if (hasUrlFlag('save_test')) {
+  runSaveSmokeTest();
+} else {
+  main().catch((error) => {
+    document.getElementById('jspsych-target').innerHTML = `
+      <div style="max-width:600px;margin:4rem auto;text-align:center;color:#fff;">
+        <h2>Setup error</h2>
+        <p>${error.message}</p>
+        <p>Double-check that <code>stimuli_manifest.json</code> exists and is reachable.</p>
+      </div>
+    `;
+    console.error(error);
+  });
+}

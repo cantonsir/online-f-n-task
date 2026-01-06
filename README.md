@@ -39,3 +39,90 @@ Browser-based experiment with rating and preference judgments across Face, Geome
 - When adding images, follow folder naming conventions; rerun `node generate_stimuli.js`.
 - For Prolific/online use, swap the `on_finish` redirect in `experiment.js` for your completion URL.
 - Use version control to track changes; keep this README for collaborators.
+
+## Prolific Deployment (GitHub Pages)
+
+You can host the task on GitHub Pages, but you **cannot store data on GitHub Pages** (it is static hosting only). For Prolific you should:
+
+1. Host your task (you already did):
+   - Example: https://cantonsir.github.io/online-f-n-task
+2. Save data to a server endpoint (recommended) and then redirect to Prolific completion.
+
+### Option A (simple): Save to Google Sheets via Apps Script
+
+This works well with GitHub Pages because your experiment can `POST` data to a Google Apps Script Web App.
+
+1. Create a Google Sheet (this is where rows will be saved).
+2. In Google Drive: New → More → Google Apps Script.
+3. Paste this script (replace `SHEET_NAME` if you want):
+
+```javascript
+const SHEET_NAME = 'data';
+
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
+
+    // Header row (only once)
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        'received_at',
+        'prolific_pid',
+        'study_id',
+        'session_id',
+        'started_at',
+        'finished_at',
+        'url',
+        'user_agent',
+        'data_csv'
+      ]);
+    }
+
+    sheet.appendRow([
+      new Date().toISOString(),
+      body.prolific_pid || '',
+      body.study_id || '',
+      body.session_id || '',
+      body.started_at || '',
+      body.finished_at || '',
+      body.url || '',
+      body.user_agent || '',
+      body.data_csv || ''
+    ]);
+
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true }))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+```
+
+4. Deploy: Deploy → New deployment → Type: **Web app**
+   - Execute as: **Me**
+   - Who has access: **Anyone** (or “Anyone with the link”)
+5. Copy the Web App URL.
+6. In `experiment.js`, set:
+   - `DATA_SUBMIT_URL` to your Web App URL
+   - `PROLIFIC_COMPLETION_CODE` to your Prolific completion code
+
+### Prolific URL parameters
+
+Prolific automatically appends `PROLIFIC_PID`, `STUDY_ID`, `SESSION_ID` to your study URL.
+This project reads them and adds them to every trial via `jsPsych.data.addProperties()`.
+
+### Completion redirect
+
+At the end, the task can redirect participants to:
+
+`https://app.prolific.com/submissions/complete?cc=YOUR_CODE`
+
+You can also pass the completion code during testing as a URL param:
+
+`?cc=YOUR_CODE`
+
