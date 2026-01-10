@@ -187,7 +187,7 @@ function showSavingScreen(messageHtml) {
 // Initialize jsPsych
 const jsPsych = initJsPsych({
   display_element: 'jspsych-target',
-  on_data_update: function(data) {
+  on_data_update: function (data) {
     // Debug: helps confirm rating trials are being written.
     if (data?.task === 'rating') {
       console.debug('[DEBUG] rating saved', {
@@ -271,7 +271,7 @@ jsPsych.data.addProperties({
 });
 
 function shuffle(array) {
-  let currentIndex = array.length,  randomIndex;
+  let currentIndex = array.length, randomIndex;
   while (currentIndex != 0) {
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
@@ -729,20 +729,20 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
         const allData = jsPsych.data.get();
         const allCount = allData.count();
         const allValues = allData.values();
-        
+
         const trialTypes = [...new Set(allValues.map(x => x.trial_type))];
         const ratingTrials = allData.filter({ task: 'rating' }).values();
         const ratingCategories = [...new Set(ratingTrials.map(x => x.normalized_category))];
 
         const rows = jsPsych.data.get().filter({ task: 'rating', normalized_category }).values();
         const count = rows.length;
-        
+
         const sample = rows.slice(0, 3).map(r => {
           const resp = (r.rating ?? r.response);
           return `<li>${r.stimulus_label} | response=${resp} | cat=${r.category} | norm=${r.normalized_category}</li>`;
         }).join('') || '<li>No rating rows found.</li>';
 
-        const last5 = allValues.slice(-5).map(r => 
+        const last5 = allValues.slice(-5).map(r =>
           `<li>Type: ${r.trial_type}, Task: ${r.task}, Cat: ${r.normalized_category}, Resp: ${r.response}</li>`
         ).join('');
 
@@ -809,7 +809,7 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
 
     timeline.push({
       type: jsPsychHtmlSliderResponse,
-      stimulus: function() {
+      stimulus: function () {
         const familiar = window.__FAMILIAR_BY_CATEGORY__?.[familiarVariable];
 
         if (!familiar) {
@@ -836,7 +836,7 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
       slider_width: 800,
       labels: preferenceLabels(),
       button_label: 'Click to continue',
-      data: function() {
+      data: function () {
         return {
           task: 'preference',
           trial_type: 'preference',
@@ -888,7 +888,7 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
 async function main() {
   // Use global variable from stimuli.js, or empty array if missing
   let stimuli = window.STIMULI_DATA || [];
-  
+
   if (stimuli.length === 0) {
     alert('No stimuli found! Make sure stimuli.js is loaded.');
     return;
@@ -914,7 +914,7 @@ async function main() {
       return data.mobile === false;
     },
     exclusion_message: (data) => {
-      if(data.mobile){
+      if (data.mobile) {
         return '<p>You must use a desktop or laptop computer to participate in this experiment.</p>';
       }
       return '<p>Your browser does not meet the requirements.</p>';
@@ -945,8 +945,8 @@ async function main() {
       </div>
     `,
     choices: ['I Consent', 'I Do Not Consent'],
-    on_finish: function(data){
-      if(data.response == 1){
+    on_finish: function (data) {
+      if (data.response == 1) {
         jsPsych.endExperiment('You did not consent to participate. You may close this window.');
       }
     }
@@ -1092,7 +1092,18 @@ async function main() {
         sets: plan.map(p => ({ category: p.category, set_id: p.set_id }))
       });
 
-      const builtTimeline = plan.flatMap(setInfo => buildSetTimelineEntries(setInfo, ratingCache));
+      // Check for direct questionnaire test
+      const testQuestionnaire = hasUrlFlag('test_questionnaire');
+
+      const builtTimeline = [];
+      if (!testQuestionnaire) {
+        const timelineFromSets = plan.flatMap(setInfo => buildSetTimelineEntries(setInfo, ratingCache));
+        builtTimeline.push(...timelineFromSets);
+      }
+
+      // Add Full Questionnaire Suite after the task (or alone if testing)
+      builtTimeline.push(...getAllQuestionnaireBlocks());
+
       builtTimeline.push(outroBlock, exitFullscreenBlock);
       jsPsych.addNodeToEndOfTimeline({ timeline: builtTimeline });
     }

@@ -7,7 +7,8 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  overflow: hidden; /* Prevent scrolling during experiment */
+  overflow: hidden;
+  /* Prevent scrolling during experiment */
 }
 
 /* Ensure the target container takes full space to allow centering */
@@ -18,6 +19,8 @@ body {
   justify-content: center;
   align-items: center;
   outline: none;
+  overflow-x: hidden;
+  /* Prevent horizontal scroll on the outer container */
 }
 
 /* Override jsPsych default max-width if needed, but usually it's fine. 
@@ -30,9 +33,22 @@ body {
   height: 100%;
 }
 
+.jspsych-content {
+  max-width: 95vw;
+  width: 100%;
+}
+
+/* Practice container kept smaller, but we override for questionnaires below */
 .practice-container {
   max-width: 900px;
   margin: auto;
+}
+
+/* Allow wider width for questionnaire trials to fit 7 Likert options */
+.jspsych-survey-likert-statement {
+  max-width: 90vw;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .practice-grid {
@@ -44,7 +60,8 @@ body {
 
 .practice-grid img {
   max-width: 100%;
-  max-height: 40vh; /* Reduced for practice too */
+  max-height: 40vh;
+  /* Reduced for practice too */
   border-radius: 8px;
   object-fit: contain;
 }
@@ -81,14 +98,15 @@ body {
 
 .main-trial-container img {
   /* Control size: max 45% of screen height, max 60% of screen width */
-  max-height: 45vh; 
+  max-height: 45vh;
   max-width: 60vw;
   width: auto;
   height: auto;
   border-radius: 4px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
   object-fit: contain;
-  display: block; /* Remove inline gap */
+  display: block;
+  /* Remove inline gap */
 }
 
 .point-value {
@@ -96,4 +114,132 @@ body {
   font-size: 1.2rem;
   font-weight: bold;
   color: #ddd;
+}
+
+/* --- Professional Survey Styling (Standard Clean Design) --- */
+
+/* Questionnaire Container */
+.jspsych-content {
+  max-height: 90vh;
+  margin: auto !important;
+  max-width: 900px !important;
+  /* Constrain width for better readability */
+  width: 95% !important;
+  overflow-y: auto;
+  padding: 30px;
+  background-color: transparent;
+  /* Clean look */
+}
+
+/* Individual Question Row */
+.jspsych-survey-likert-question {
+  margin-bottom: 60px !important;
+  border-bottom: 1px solid #333;
+  /* Subtle divider */
+  padding-bottom: 40px;
+}
+
+.jspsych-survey-likert-question:last-child {
+  border-bottom: none;
+}
+
+/* Question Text */
+.jspsych-survey-likert-statement {
+  font-size: 1.15rem !important;
+  line-height: 1.4;
+  margin-bottom: 30px !important;
+  color: #fff !important;
+  text-align: center;
+}
+
+/* Options Container */
+.jspsych-survey-likert-opts {
+  display: flex !important;
+  justify-content: space-between !important;
+  list-style: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  width: 100% !important;
+  position: relative;
+}
+
+
+/* Explicitly remove any default horizontal line */
+.jspsych-survey-likert-opts::before {
+  content: none !important;
+  display: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  border: none !important;
+}
+
+/* Individual Option Item */
+.jspsych-survey-likert-opts li {
+  flex: 1 1 0 !important;
+  /* Grow, Shrink, Basis 0 - Forces equality */
+  text-align: center;
+  position: relative;
+  z-index: 1;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-width: 0 !important;
+  /* Prevents overflow from forcing width */
+}
+
+/* Radio Button */
+.jspsych-survey-likert-opts input[type="radio"] {
+  margin: 0 0 10px 0 !important;
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  appearance: none;
+  /* Reset default look */
+  -webkit-appearance: none;
+  border: 2px solid #888;
+  border-radius: 50%;
+  background-color: #222;
+  /* Matches background to hide line */
+  position: relative;
+  z-index: 2;
+}
+
+/* Checked State - Custom Circle */
+.jspsych-survey-likert-opts input[type="radio"]:checked {
+  border-color: #4CAF50;
+  /* Green highlight when selected */
+  background-color: #4CAF50;
+  box-shadow: 0 0 0 3px #222 inset;
+  /* Creates a ring effect */
+}
+
+/* Label Text */
+.jspsych-survey-likert-opt-label {
+  font-size: 0.85rem !important;
+  color: #ccc !important;
+  line-height: 1.2;
+}
+
+/* Continue Button */
+.jspsych-btn {
+  background-color: #222 !important;
+  border: 1px solid #666 !important;
+  color: #fff !important;
+  padding: 12px 30px !important;
+  font-size: 1.1rem !important;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.jspsych-btn:hover {
+  background-color: #444 !important;
+  border-color: #fff !important;
+}
+
+
+#jspsych-survey-likert-next {
+  text-align: center;
+  margin-top: 2rem;
 }
