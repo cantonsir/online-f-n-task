@@ -36,12 +36,16 @@ const scale6ptAgree = [
 
 // --- Helper for Single Page Block ---
 function makeLikertBlock(title, instructions, questions, scale, prefix, preambleOverride) {
+    // 1. Format Questions
     const formattedQuestions = questions.map((q, i) => ({
         prompt: q,
         name: `${prefix}_${i + 1}`,
-        required: true, // "clean and professional" often implies ensuring completeness
+        required: true,
         labels: scale
     }));
+
+    // Closure to hold click timings
+    let clickTimings = {};
 
     return {
         type: jsPsychSurveyLikert,
@@ -53,11 +57,34 @@ function makeLikertBlock(title, instructions, questions, scale, prefix, preamble
     `,
         questions: formattedQuestions,
         randomize_question_order: false,
-        // scale_width: 1000, // Let CSS control the width
         data: {
             trial_type: 'questionnaire',
             questionnaire_name: title,
-            task: 'questionnaire' // Identifying tag for data analysis
+            task: 'questionnaire'
+        },
+        on_load: function () {
+            // Start time relative to when the trial loads
+            const startTime = performance.now();
+
+            // Attach listeners to all radio inputs
+            const radios = document.querySelectorAll('input[type="radio"]');
+            radios.forEach(radio => {
+                radio.addEventListener('click', (e) => {
+                    const questionName = e.target.name;
+                    const value = e.target.value;
+                    const rt = performance.now() - startTime;
+
+                    // Log the latest click for this question
+                    clickTimings[questionName] = {
+                        value: value,
+                        rt_ms: Math.round(rt)
+                    };
+                });
+            });
+        },
+        on_finish: function (data) {
+            // Save the granular timings to the data object
+            data.item_response_times = JSON.stringify(clickTimings);
         }
     };
 }
@@ -76,11 +103,12 @@ function getTrustBlock() {
         "I don't like doing things with others if there's a chance that only I will be at a loss.",
         "It's foolish to suffer a loss because I relied on someone else.",
         "Sometimes, being taken advantage of by others is okay, and I think that's acceptable.",
-        "I have not always been honest with myself."
+        "I have not always been honest with myself.",
+        "This is an attention check. Please select “Strongly disagree.”" // Attention Check
     ];
     return makeLikertBlock(
         "Trust and Interpersonal Beliefs Questionnaire",
-        "Instructions: These 11 questions are about how you feel and how you express yourself. Try not to spend too much time on any one question. Please answer the questions below as honestly as possible based on your feelings.",
+        "Instructions: These 12 questions are about how you feel and how you express yourself. Please answer honestly. <strong>For the attention check item, please select the specified option.</strong>",
         questions,
         scale7ptAgree,
         "trust"
@@ -100,11 +128,12 @@ function getEmotionRegBlock() {
         "When I want to lighten my unhappiness (such as sadness, anger, or worry), I change my way of thinking.",
         "I think about something different when I want more happiness.",
         "I tend not to notice feelings of physical tension or discomfort until they really grab my attention.",
-        "I feel worried when I think I have done poorly at something important."
+        "I feel worried when I think I have done poorly at something important.",
+        "This is an attention check. Please select “Strongly disagree.”" // Attention Check
     ];
     return makeLikertBlock(
         "Emotion Regulation and Awareness Questionnaire",
-        "Instructions: These 12 questions are about how you feel and how you express yourself. Try not to spend too much time on any one question. Please answer the questions below as honestly as possible based on your feelings.",
+        "Instructions: These 13 questions are about how you feel and how you express yourself. Try not to spend too much time on any one question. Please answer the questions below as honestly as possible based on your feelings. <strong>For the attention check item, please select the specified option.</strong>",
         questions,
         scale7ptAgree,
         "emotion_reg"

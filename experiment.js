@@ -411,11 +411,11 @@ function selectFamiliarFromRatings(jsPsych, category, ratingCache) {
   };
 }
 
-function ageRangeToAgeGroup(ageRange) {
-  if (!ageRange) return null;
-  const young = ['18-24', '25-34'];
-  if (young.includes(ageRange)) return 'young_adult';
-  return 'adult';
+function getAgeGroup(age) {
+  if (age === null || age === undefined) return null;
+  // User logic: > 40 is 'adult', else 'young_adult'
+  if (age > 40) return 'adult';
+  return 'young_adult';
 }
 
 function genderAtBirthToToken(gender) {
@@ -426,10 +426,31 @@ function genderAtBirthToToken(gender) {
 }
 
 function buildIngroupFolderName(profile) {
-  const g = genderAtBirthToToken(profile.gender_birth);
-  const r = profile.race?.toLowerCase();
-  const ageGroup = ageRangeToAgeGroup(profile.age_range);
-  if (!g || !r || !ageGroup) return null;
+  // Helper for random choice
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  // 1. Gender Logic
+  let g = genderAtBirthToToken(profile.gender_birth);
+  if (!g) {
+    // Fallback for 'prefer-not-to-say' or missing -> Random Male/Female
+    g = pick(['Male', 'Female']);
+  }
+
+  // 2. Race Logic
+  let r = profile.race?.toLowerCase();
+  const validRaces = ['asian', 'black', 'latino', 'white'];
+  // If r is missing, 'mixed', 'other', or 'prefer-not-to-say', pick random valid race
+  if (!r || !validRaces.includes(r)) {
+    r = pick(validRaces);
+  }
+
+  // 3. Age Logic
+  let ageGroup = getAgeGroup(profile.age);
+  if (!ageGroup) {
+    // Fallback if age is somehow missing or undefined
+    ageGroup = pick(['young_adult', 'adult']);
+  }
+
   return `${g}-${r}-${ageGroup}-neutral`;
 }
 
@@ -456,6 +477,13 @@ function buildFaceSetPlan(index, profile) {
   const plan = [];
   const ingroup = buildIngroupFolderName(profile);
 
+  let ingroupRace = null;
+  // Try to parse race from "Gender-Race-Age-neutral"
+  if (ingroup) {
+    const parts = ingroup.split('-');
+    if (parts.length >= 2) ingroupRace = parts[1].toLowerCase();
+  }
+
   if (ingroup && faceMap.has(ingroup)) {
     plan.push({
       category: 'face',
@@ -465,7 +493,25 @@ function buildFaceSetPlan(index, profile) {
     });
   }
 
-  const outgroupKeys = shuffle([...faceMap.keys()].filter(k => k !== ingroup));
+  // Filter outgroups: Exclude ingroup AND any set with the same race
+  // "these category should not overlapping"
+  const allKeys = [...faceMap.keys()];
+  const candidates = allKeys.filter(k => {
+    if (k === ingroup) return false;
+    if (ingroupRace) {
+      // Assuming naive naming convention matches: starts with "Gender-Race-"
+      const kParts = k.split('-');
+      if (kParts.length >= 2) {
+        const kRace = kParts[1].toLowerCase();
+        if (kRace === ingroupRace) return false;
+      }
+    }
+    return true;
+  });
+
+  const outgroupKeys = shuffle(candidates);
+
+  // Add up to 3 outgroups
   for (const key of outgroupKeys.slice(0, 3)) {
     plan.push({
       category: 'face',
@@ -549,10 +595,15 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <div class="practice-container" style="text-align:center;">
-        <h3>Preview</h3>
-        <p>You will now preview the images in this set.</p>
-        <p>Press <strong>Space</strong> to start the preview.</p>
+      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+        <h3>Phase 1: Image Preview</h3>
+        <ul>
+          <li>A series of images will be presented rapidly (2 images per second).</li>
+          <li>This phase is meant to give you an intuitive grasp of the range of images you will evaluate.</li>
+        </ul>
+        <div style="text-align:center; margin-top:2rem;">
+          <p>Press <strong>Space</strong> to start the preview.</p>
+        </div>
       </div>
     `,
     choices: [' '],
@@ -591,11 +642,20 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <div class="practice-container" style="text-align:center;">
-        <h3>Rating</h3>
-        <p>You will now rate the same images.</p>
-        <p>Use the slider from 1 (not attractive) to 7 (extremely attractive).</p>
-        <p>Press <strong>Space</strong> to start.</p>
+      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+        <h3>Phase 2: Single Image Evaluation</h3>
+        <ul>
+            <li>You will see one image at a time and evaluate its attractiveness.</li>
+            <li>The rating procedure is <strong>self-paced</strong>, allowing you to take your time for each response.</li>
+        </ul>
+        <p>For each image:</p>
+        <ul>
+            <li>Rate its attractiveness on a <strong>7-point scale</strong>.</li>
+            <li>Select your response based on your <strong>immediate impression</strong>.</li>
+        </ul>
+        <div style="text-align:center; margin-top:2rem;">
+            <p>Press <strong>Space</strong> to start.</p>
+        </div>
       </div>
     `,
     choices: [' '],
@@ -784,12 +844,25 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
       const familiar = window.__FAMILIAR_BY_CATEGORY__?.[familiarVariable];
       const familiarText = familiar ? `Familiar image selected: <strong>${familiar.label}</strong>.` : 'Familiar image could not be selected.';
       return `
-        <div class="practice-container" style="text-align:center;">
-          <h3>Next: Preference judgments</h3>
-          <p>Set: <strong>${set_label}</strong></p>
-          <p>${familiarText}</p>
-          <p>Next, you will compare the familiar image to new images from the same set.</p>
-          <p>Press <strong>Space</strong> to continue.</p>
+        <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+          <h3>Phase 3: Comparative Evaluation</h3>
+          <p style="font-size:0.9rem; color:#ccc;">(Debug info: ${familiarText})</p>
+          
+          <p>In this task, you will <strong>compare two images presented side-by-side</strong>.</p>
+          <p>For each trial:</p>
+          <ol>
+              <li>Evaluate the two images based on your <strong>relative preference</strong>.</li>
+              <li>Indicate your preference using the <strong>7-point scale</strong>.</li>
+          </ol>
+          <ul>
+            <li><strong>-3</strong>: Strong preference for the image on the left.</li>
+            <li><strong>0</strong>: Neutral, no preference.</li>
+            <li><strong>+3</strong>: Strong preference for the image on the right.</li>
+          </ul>
+
+          <div style="text-align:center; margin-top:2rem;">
+            <p>Press <strong>Space</strong> to continue.</p>
+          </div>
         </div>
       `;
     },
@@ -957,37 +1030,37 @@ async function main() {
     type: jsPsychSurveyHtmlForm,
     preamble: '<h3>Demographics</h3><p>Please answer the following questions about yourself.</p>',
     html: `
-      <div style="text-align: left; max-width: 400px; margin: auto;">
+      <div style="text-align: left; max-width: 450px; margin: auto;">
+        
+        <div style="background-color: #f8f9fa; border-left: 4px solid #007bff; padding: 15px; margin-bottom: 20px; border-radius: 4px; color: #333;">
+           <strong>Note:</strong> This information will be used directly in the task to customize your experience. Please answer accurately.
+        </div>
+
         <p>
-          <label for="age"><strong>Age Range:</strong></label><br>
-          <select id="age" name="age" required style="width: 100%; padding: 5px;">
-             <option value="" disabled selected>Select your age range</option>
-             <option value="18-24">18-24</option>
-             <option value="25-34">25-34</option>
-             <option value="35-44">35-44</option>
-             <option value="45-54">45-54</option>
-             <option value="55-64">55-64</option>
-             <option value="65+">65+</option>
-             <option value="prefer-not-to-say">Prefer not to say</option>
-          </select>
+          <label for="age"><strong>Age:</strong></label><br>
+          <input type="number" id="age" name="age" required min="18" max="99" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="e.g., 25">
         </p>
+
         <p>
           <label for="gender_birth"><strong>Gender at birth:</strong></label><br>
-          <select id="gender_birth" name="gender_birth" required style="width: 100%; padding: 5px;">
-             <option value="" disabled selected>Select your gender at birth</option>
+          <select id="gender_birth" name="gender_birth" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+             <option value="" disabled selected>Select your gender</option>
              <option value="female">Female</option>
              <option value="male">Male</option>
              <option value="prefer-not-to-say">Prefer not to say</option>
           </select>
         </p>
+
         <p>
-          <label for="race"><strong>Race:</strong></label><br>
-          <select id="race" name="race" required style="width: 100%; padding: 5px;">
-             <option value="" disabled selected>Select your race</option>
+          <label for="race"><strong>Race/Ethnicity:</strong></label><br>
+          <select id="race" name="race" required style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+             <option value="" disabled selected>Select your race/ethnicity</option>
              <option value="asian">Asian</option>
-             <option value="black">Black</option>
-             <option value="latino">Latino</option>
-             <option value="white">White</option>
+             <option value="black">Black / African American</option>
+             <option value="latino">Hispanic / Latino</option>
+             <option value="white">White / Caucasian</option>
+             <option value="mixed">Multiracial / Mixed</option>
+             <option value="other">Other</option>
              <option value="prefer-not-to-say">Prefer not to say</option>
           </select>
         </p>
@@ -996,11 +1069,14 @@ async function main() {
     button_label: 'Continue',
     on_finish: (data) => {
       const resp = data.response || {};
-      participantProfile.age_range = resp.age;
+      // Convert age to number but keep as string for profile if needed, or number
+      // Profile expects age_range usually but we can adapt
+      participantProfile.age = parseInt(resp.age);
       participantProfile.gender_birth = resp.gender_birth;
       participantProfile.race = resp.race;
+
       jsPsych.data.addProperties({
-        age_range: resp.age,
+        age: participantProfile.age,
         gender_birth: resp.gender_birth,
         race: resp.race
       });
@@ -1015,27 +1091,230 @@ async function main() {
   });
 
   // 6. Welcome & Instructions
-  timeline.push({
+  // 6. Comprehensive Instructions & Verification Loop
+  const instructionsTimeline = [];
+
+  // Screen 1: Task Overview
+  instructionsTimeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <div class="practice-container" style="text-align:center;">
-        <h1>Welcome to the Experiment</h1>
-        <p style="max-width:740px;margin:0 auto 1rem;">
-          You will complete the steps below for each image set. Please read carefully before starting.
-        </p>
-        <div style="text-align:left; display:inline-block; max-width:700px; margin:0 auto; font-size:1rem; line-height:1.5;">
-          <ol style="text-align:left; padding-left:1.5rem;">
-            <li><strong>Preview:</strong> images appear briefly so you know what is coming.</li>
-            <li><strong>Rating (1–7):</strong> move the slider to show attractiveness; you must move it each time and click “Click to continue”.</li>
-            <li><strong>Preference (-3…+3):</strong> a “familiar” image (from your earlier ratings) is paired with a new one; use the slider to show which you prefer and how strongly.</li>
-          </ol>
-          <p>All images in a set are unique, and each set may come from a different folder (e.g., Face in-group/out-group, Geometry types, Natural scenes).</p>
+      <div class="practice-container" style="text-align:center; max-width:800px; margin:auto;">
+        <h1>Visual Preference</h1>
+        <div style="text-align:left; margin-bottom:2rem;">
+            <p>Thank you for participating in this study.<br>
+            Please read the following instructions carefully before proceeding.</p>
+
+            <h3>Task Overview</h3>
+            <p>This study is designed to explore visual preferences across various image categories. The task consists of three phases, each with specific instructions provided before it begins.</p>
+            <ul>
+                <li><strong>Phase 1: Image Preview</strong></li>
+                <li><strong>Phase 2: Single Image Evaluation</strong></li>
+                <li><strong>Phase 3: Comparative Evaluation</strong></li>
+            </ul>
+            <p>Before each phase, a brief set of instructions will be provided to guide you. Please ensure you understand them before proceeding.</p>
         </div>
-        <p style="margin-top:1rem;">Press the <strong>Space Bar</strong> to begin.</p>
+        <p>Press <strong>Space</strong> to continue</p>
       </div>
     `,
     choices: [' '],
-    data: { trial_type: 'intro' }
+    data: { trial_type: 'instr_overview' }
+  });
+
+  // Screen 2: Phase 1 & 2 Details
+  instructionsTimeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+        <h1>Instructions</h1>
+        
+        <h3>Phase 1: Image Preview</h3>
+        <ul>
+            <li>A series of images will be presented rapidly (2 images per second).</li>
+            <li>This phase is meant to give you an intuitive grasp of the range of images you will evaluate.</li>
+        </ul>
+
+        <h3>Phase 2: Single Image Evaluation</h3>
+        <ul>
+            <li>You will see one image at a time and evaluate its attractiveness.</li>
+            <li>The rating procedure is <strong>self-paced</strong>, allowing you to take your time for each response.</li>
+        </ul>
+        
+        <p>For each image:</p>
+        <ul>
+            <li>Rate its attractiveness on a <strong>7-point scale</strong>.</li>
+            <li>Select your response based on your <strong>immediate impression</strong>.</li>
+        </ul>
+
+        <div style="text-align:center; margin-top:3rem;">
+            <p>Press <strong>Space</strong> to continue</p>
+        </div>
+      </div>
+    `,
+    choices: [' '],
+    data: { trial_type: 'instr_phase1_2' }
+  });
+
+  // Screen 3: Phase 3 Details
+  instructionsTimeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+        <h1>Instructions</h1>
+        
+        <h3>Phase 3: Comparative Evaluation</h3>
+        <p>In this task, you will <strong>compare two images presented side-by-side</strong>.</p>
+        
+        <p>For each trial:</p>
+        <ol>
+            <li>Evaluate the two images based on your <strong>relative preference</strong>.</li>
+            <li>Indicate your preference using the <strong>7-point scale</strong>:</li>
+        </ol>
+        
+        <ul>
+            <li><strong>-3</strong>: Strong preference for the image on the left.</li>
+            <li><strong>0</strong>: Neutral, no preference.</li>
+            <li><strong>+3</strong>: Strong preference for the image on the right.</li>
+        </ul>
+
+        <div style="text-align:center; margin-top:3rem;">
+            <p>Press <strong>Space</strong> to continue</p>
+        </div>
+      </div>
+    `,
+    choices: [' '],
+    data: { trial_type: 'instr_phase3' }
+  });
+
+  // Screen 4: Important Notes
+  instructionsTimeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+        <h1>Instructions</h1>
+        
+        <h3>Important Notes:</h3>
+        <ul>
+            <li><strong>Task Duration:</strong> The entire task will take approximately 1 hour to complete.</li>
+        </ul>
+
+        <h3 style="margin-top:3rem; text-align:center;">Start a Comprehension Test.</h3>
+        
+        <div style="text-align:center; margin-top:2rem;">
+            <p>Press <strong>Space</strong> to continue</p>
+        </div>
+      </div>
+    `,
+    choices: [' '],
+    data: { trial_type: 'instr_notes' }
+  });
+
+  // Comprehension Check: Survey Style
+  instructionsTimeline.push({
+    type: jsPsychSurveyMultiChoice,
+    questions: [
+      {
+        prompt: "<strong>1. During the image evaluation phase, what should you do?</strong>",
+        options: [
+          "Rate the attractiveness based on your immediate impression",
+          "Rate the attractiveness randomly"
+        ],
+        required: true,
+        name: 'q1'
+      },
+      {
+        prompt: "<strong>2. When comparing two images, what should you do if you feel a strong preference for one image?</strong>",
+        options: [
+          "Use the extreme values to show your true preference",
+          "Choose a middle value to be safe"
+        ],
+        required: true,
+        name: 'q2'
+      }
+    ],
+    button_label: 'Continue',
+    data: { trial_type: 'comprehension_check', task: 'comprehension' }
+  });
+
+  // Loop Node
+  const instructionLoopNode = {
+    timeline: instructionsTimeline,
+    loop_function: () => {
+      // Use GLOBAL data, filter by our custom 'task' tag
+      const lastTrialNode = jsPsych.data.get().filter({ task: 'comprehension' }).last(1);
+      const lastTrial = lastTrialNode.count() > 0 ? lastTrialNode.values()[0] : null;
+
+      if (!lastTrial) {
+        // Should not happen if the trial just ran
+        console.warn("Comprehension check data not found!");
+        return true;
+      }
+
+      const responses = lastTrial.response;
+      const ans1 = responses['q1'];
+      const ans2 = responses['q2'];
+
+      // Check correct text (trimmed)
+      const isQ1Correct = ans1 && String(ans1).includes("immediate impression");
+      const isQ2Correct = ans2 && String(ans2).includes("extreme values");
+
+      if (!isQ1Correct || !isQ2Correct) {
+        alert("You answered one or more questions incorrectly. Please review the instructions.");
+        return true; // Loop again
+      }
+      return false; // Proceed
+    }
+  };
+  timeline.push(instructionLoopNode);
+
+  // Success & Practice Intro
+  timeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="practice-container" style="text-align:center; max-width:800px; margin:auto;">
+        <h3>Great, you answered all questions correctly.</h3>
+        <p>Now, let’s do a quick practice trial.</p>
+        <p style="margin-top:2rem;">Press <strong>Space</strong> to start</p>
+      </div>
+    `,
+    choices: [' '],
+    data: { trial_type: 'practice_intro' }
+  });
+
+  // Practice Trial (Single Rating Only)
+  const practiceStim = stimuli[0] || { src: 'https://via.placeholder.com/400', label: 'Practice Image' };
+
+  timeline.push({
+    type: jsPsychHtmlSliderResponse,
+    stimulus: buildMainHtml(practiceStim),
+    min: 1,
+    max: 7,
+    step: 0.05,
+    slider_start: 4,
+    require_movement: true,
+    slider_width: 800,
+    labels: sliderLabels(),
+    button_label: 'Click to continue',
+    data: {
+      task: 'practice_rating',
+      stage: 'practice',
+      stimulus_src: practiceStim.src,
+      stimulus_label: practiceStim.label,
+      utc_start: utcNow()
+    }
+  });
+
+  // Practice Complete
+  timeline.push({
+    type: jsPsychHtmlKeyboardResponse,
+    stimulus: `
+      <div class="practice-container" style="text-align:center; max-width:800px; margin:auto;">
+        <h2>Practice Complete</h2>
+        <p>You are now ready to begin the main experiment.</p>
+        <p>Press <strong>Space</strong> to start Phase 1.</p>
+      </div>
+    `,
+    choices: [' '],
+    data: { trial_type: 'practice_end' }
   });
 
   // --- Category-wise two-stage paradigm ---
