@@ -269,3 +269,19 @@ body {
 *::-webkit-scrollbar-thumb:hover {
   background-color: #777;
 }
+
+/* --- Override for Visual Tasks (Rating / Preference) --- */
+/* Remove the survey-specific max-height and overflow restricts to prevent scrollbars on visual tasks */
+.jspsych-content.visual-task {
+  max-height: none !important;
+  overflow-y: visible !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 10px !important;
+  /* Minimal padding */
+}
+
+.visual-task .jspsych-content-wrapper {
+  overflow: hidden !important;
+  /* Ensure wrapper clips if absolutely needed, but usually flex handles it */
+}

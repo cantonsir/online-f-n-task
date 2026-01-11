@@ -14,6 +14,23 @@ function hasUrlFlag(name) {
   return false;
 }
 
+function isFullscreen() {
+  if (
+    document.fullscreenElement ||
+    document.mozFullScreenElement ||
+    document.webkitFullscreenElement ||
+    document.msFullscreenElement
+  ) {
+    return true;
+  }
+  // Fallback: check if window size matches screen size (approximate for F11)
+  // Allow a small tolerance (e.g. 5px) for scrollbars or borders
+  return (
+    Math.abs(window.innerWidth - screen.width) < 5 &&
+    Math.abs(window.innerHeight - screen.height) < 5
+  );
+}
+
 // === Prolific + saving configuration ===
 // 1) Put your Google Apps Script (or other) endpoint here.
 // Leave null to disable server saving and only download locally.
@@ -22,7 +39,7 @@ const DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24Gq
 // 2) Put your Prolific completion code here.
 // You can also provide it as a URL param: ?cc=XXXXXX
 // const PROLIFIC_COMPLETION_CODE = 'C165LFSB';
-const PROLIFIC_COMPLETION_CODE = null;
+const PROLIFIC_COMPLETION_CODE = 'C1IG8KMB';
 
 function prolificCompleteUrl(completionCode) {
   if (!completionCode) return null;
@@ -581,9 +598,8 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
       <div class="practice-container" style="text-align:center;">
-        <h2>Category: ${category}</h2>
-        <p>Set: <strong>${set_label}</strong></p>
-        <p>You will first preview and rate 19 images, then make preference judgments for 18 new images.</p>
+        <h2>Next Block: Visual Evaluation</h2>
+        <p>You will first preview and rate a set of images, then make preference judgments.</p>
         <p>Press <strong>Space</strong> to continue.</p>
       </div>
     `,
@@ -666,6 +682,7 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
   for (const stim of set1) {
     timeline.push({
       type: jsPsychHtmlSliderResponse,
+      css_classes: ['visual-task'],
       stimulus: buildMainHtml(stim),
       min: 1,
       max: 7,
@@ -846,7 +863,6 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
       return `
         <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
           <h3>Phase 3: Comparative Evaluation</h3>
-          <p style="font-size:0.9rem; color:#ccc;">(Debug info: ${familiarText})</p>
           
           <p>In this task, you will <strong>compare two images presented side-by-side</strong>.</p>
           <p>For each trial:</p>
@@ -882,6 +898,7 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
 
     timeline.push({
       type: jsPsychHtmlSliderResponse,
+      css_classes: ['visual-task'],
       stimulus: function () {
         const familiar = window.__FAMILIAR_BY_CATEGORY__?.[familiarVariable];
 
@@ -903,7 +920,7 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
       },
       min: -3,
       max: 3,
-      step: 1,
+      step: 0.01,
       slider_start: 0,
       require_movement: true,
       slider_width: 800,
@@ -933,9 +950,9 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
         const pointLabel = document.getElementById('point-value');
         if (!slider || !pointLabel) return;
         const updatePoint = () => {
-          const value = parseInt(slider.value, 10);
+          const value = parseFloat(slider.value);
           if (!Number.isNaN(value)) {
-            pointLabel.textContent = `Your preference is ${value}`;
+            pointLabel.textContent = `Your preference is ${value.toFixed(2)}`;
           }
         };
         slider.addEventListener('input', updatePoint);
@@ -1083,12 +1100,7 @@ async function main() {
     }
   });
 
-  // 5. Fullscreen
-  timeline.push({
-    type: jsPsychFullscreen,
-    fullscreen_mode: true,
-    message: '<p>The experiment will switch to full screen mode when you press the button below.</p>'
-  });
+
 
   // 6. Welcome & Instructions
   // 6. Comprehensive Instructions & Verification Loop
@@ -1266,6 +1278,15 @@ async function main() {
   };
   timeline.push(instructionLoopNode);
 
+  // Enforce Fullscreen (Once, after comprehension)
+  timeline.push({
+    type: jsPsychFullscreen,
+    fullscreen_mode: true,
+    message: '<p>The experiment will switch to full screen mode when you press the button below.</p>',
+    button_label: 'Continue',
+    delay_after: 500
+  });
+
   // Success & Practice Intro
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
@@ -1300,6 +1321,19 @@ async function main() {
       stimulus_src: practiceStim.src,
       stimulus_label: practiceStim.label,
       utc_start: utcNow()
+    },
+    on_load: () => {
+      const slider = document.querySelector('#jspsych-html-slider-response-response');
+      const pointLabel = document.getElementById('point-value');
+      if (!slider || !pointLabel) return;
+      const updatePoint = () => {
+        const value = parseFloat(slider.value);
+        if (!Number.isNaN(value)) {
+          pointLabel.textContent = `Your point is ${value.toFixed(2)}`;
+        }
+      };
+      slider.addEventListener('input', updatePoint);
+      updatePoint();
     }
   });
 
