@@ -39,7 +39,7 @@ const DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24Gq
 // 2) Put your Prolific completion code here.
 // You can also provide it as a URL param: ?cc=XXXXXX
 // const PROLIFIC_COMPLETION_CODE = 'C165LFSB';
-const PROLIFIC_COMPLETION_CODE = 'C1IG8KMB';
+const PROLIFIC_COMPLETION_CODE = 'C1CUJ5JA';
 
 function prolificCompleteUrl(completionCode) {
   if (!completionCode) return null;
@@ -569,7 +569,7 @@ function buildExperimentPlan(stimuli, profile) {
   return plan;
 }
 
-function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratingCache) {
+function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratingCache, isFirstSet = false) {
   const normalized_category = normalizeCategory(set_id);
   const timeline = [];
   const shuffledStimuli = shuffle([...stimuli]);
@@ -611,14 +611,18 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+      <div class="practice-container" style="text-align:${isFirstSet ? 'left' : 'center'}; max-width:800px; margin:auto;">
         <h3>Phase 1: Image Preview</h3>
+        ${isFirstSet
+        ? `
         <ul>
           <li>A series of images will be presented rapidly (2 images per second).</li>
           <li>This phase is meant to give you an intuitive grasp of the range of images you will evaluate.</li>
-        </ul>
+        </ul>`
+        : `<p>Rapid presentation of images.</p>`
+      }
         <div style="text-align:center; margin-top:2rem;">
-          <p>Press <strong>Space</strong> to start the preview.</p>
+          <p>Press <strong>Space</strong> to start${isFirstSet ? ' the preview' : ''}.</p>
         </div>
       </div>
     `,
@@ -658,8 +662,10 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
   timeline.push({
     type: jsPsychHtmlKeyboardResponse,
     stimulus: `
-      <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+      <div class="practice-container" style="text-align:${isFirstSet ? 'left' : 'center'}; max-width:800px; margin:auto;">
         <h3>Phase 2: Single Image Evaluation</h3>
+        ${isFirstSet
+        ? `
         <ul>
             <li>You will see one image at a time and evaluate its attractiveness.</li>
             <li>The rating procedure is <strong>self-paced</strong>, allowing you to take your time for each response.</li>
@@ -668,7 +674,9 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
         <ul>
             <li>Rate its attractiveness on a <strong>7-point scale</strong>.</li>
             <li>Select your response based on your <strong>immediate impression</strong>.</li>
-        </ul>
+        </ul>`
+        : `<p>Rate each image's attractiveness.</p>`
+      }
         <div style="text-align:center; margin-top:2rem;">
             <p>Press <strong>Space</strong> to start.</p>
         </div>
@@ -861,9 +869,10 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
       const familiar = window.__FAMILIAR_BY_CATEGORY__?.[familiarVariable];
       const familiarText = familiar ? `Familiar image selected: <strong>${familiar.label}</strong>.` : 'Familiar image could not be selected.';
       return `
-        <div class="practice-container" style="text-align:left; max-width:800px; margin:auto;">
+        <div class="practice-container" style="text-align:${isFirstSet ? 'left' : 'center'}; max-width:800px; margin:auto;">
           <h3>Phase 3: Comparative Evaluation</h3>
-          
+          ${isFirstSet
+          ? `
           <p>In this task, you will <strong>compare two images presented side-by-side</strong>.</p>
           <p>For each trial:</p>
           <ol>
@@ -874,7 +883,9 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
             <li><strong>-3</strong>: Strong preference for the image on the left.</li>
             <li><strong>0</strong>: Neutral, no preference.</li>
             <li><strong>+3</strong>: Strong preference for the image on the right.</li>
-          </ul>
+          </ul>`
+          : `<p>Compare two images.</p>`
+        }
 
           <div style="text-align:center; margin-top:2rem;">
             <p>Press <strong>Space</strong> to continue.</p>
@@ -1019,7 +1030,7 @@ async function main() {
         <h2>Informed Consent</h2>
         <p><strong>Purpose:</strong> You are invited to participate in a research study about visual perception and aesthetics. The purpose is to understand how people evaluate the attractiveness of different scenes.</p>
         
-        <p><strong>Procedure:</strong> In this task, you will view a series of images and rate their attractiveness using a slider. The task will take approximately 10-15 minutes.</p>
+        <p><strong>Procedure:</strong> In this task, you will view a series of images and rate their attractiveness using a slider. The task will take approximately 45-60 minutes.</p>
         
         <p><strong>Risks and Benefits:</strong> There are no known risks associated with this study beyond those encountered in daily life. There are no direct benefits to you, but your participation will contribute to scientific knowledge.</p>
         
@@ -1410,7 +1421,7 @@ async function main() {
 
       const builtTimeline = [];
       if (!testQuestionnaire) {
-        const timelineFromSets = plan.flatMap(setInfo => buildSetTimelineEntries(setInfo, ratingCache));
+        const timelineFromSets = plan.flatMap((setInfo, index) => buildSetTimelineEntries(setInfo, ratingCache, index === 0));
         builtTimeline.push(...timelineFromSets);
       }
 
