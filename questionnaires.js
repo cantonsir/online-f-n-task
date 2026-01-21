@@ -338,13 +338,14 @@ function getGoalResilienceBlock() {
 
 function getFlowBlock() {
     const questions = [
-        "I think experiences of being absorbed into tasks or activities (flow) are joyful.",
-        "I think such flow experiences improve a more active and positive attitude in life later.",
-        "I think such flow experiences increase resilience and toughness against aversive situations.",
-        "I think having an active and positive attitude in life leads to deeper or more frequent flow experiences.",
-        "I think it is desirable to have deep flow experiences and to be active, positive, and resilient.",
-        "I think flow experiences make one's lifestyle more active, positive, and resilient.",
-        "My positive attitude towards life makes my flow deeper.",
+        "I do think such experiences of being absorbed into tasks/activities (flow) are joyful.",
+        "I do think such experiences of being absorbed into tasks/activities (flow) improve a more active and positive attitude in life and academic learning later.",
+        "I do think such experiences of being absorbed into tasks/activities (flow) would increase resilience and toughness against aversive situations.",
+        "I do think having such an active and positive attitude in life leads to deeper or more frequent flow experiences.",
+        "It is desirable that deep flow experiences improve a more active and positive attitude in life and academic learning later.",
+        "It is true that those flow experiences make one’s lifestyle more active, positive, and resilient.",
+        "Did your flow experiences make your lifestyle more active, positive, and resilient in real life and academic learning?",
+        "Did your positive attitude towards life make your flow deeper in your real life?",
         "My interests change from year to year.",
         "New ideas and projects sometimes distract me from previous ones.",
         "I often set a goal but later pursue a different one.",

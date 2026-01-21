@@ -1,128 +1,90 @@
 ﻿# jsPsych Multi-Category Preference Task
 
-Browser-based experiment with rating and preference judgments across Face, Geometry, and Natural Scene image sets. Demographic responses select an in-group face set; remaining face sets supply up to 3 out-group sets. Geometry and Natural Scene subfolders run in sorted order. Each set: 19 ratings (1-7) then 18 preference trials (-3 to +3).
+![jsPsych](https://img.shields.io/badge/jsPsych-8.2.2-blue)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES6+-yellow)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-## Repository Structure
-- `index.html` - entry point loading jsPsych, plugins, `stimuli.js`, and `experiment.js`.
-- `experiment.js` - full timeline logic, data handling, familiar selection, and UI helpers.
-- `generate_stimuli.js` - scans `Figure/` recursively and writes `stimuli.js` with `{category, set, label, src}` rows.
-- `stimuli.js` - generated stimuli list (do not hand edit).
-- `stimuli_manifest.json` - legacy artifact, not used by the current codepath.
-- `styles.css` - task styling.
-- `Figure/` - image assets:
-  - `Face/<Gender-Race-AgeGroup-neutral>/...png`
-  - `Geometry/<subfolder>/...png`
-  - `Natural_scene/<subfolder>/...jpg`
+A professional, browser-based behavioral experiment designed to measure rating and preference judgments across various image categories, including **Face**, **Geometry**, and **Natural Scene** sets.
 
-## Running the Task
-1. Install deps (only needed for local server): `npm install`.
-2. Regenerate stimuli after adding/changing images: `node generate_stimuli.js`.
-3. Serve locally: `npm run serve` (or `npx http-server -c-1`) and open the shown URL.
-4. Complete demographics to set the face in-group (gender at birth, race, age range -> young_adult/adult). Category order is randomized each run.
+## 🌟 Overview
 
-## Experiment Flow (per set)
-1. Preview: 19 images, 750 ms each.
-2. Rating: same 19 images, slider 1-7, must move slider, click "Click to continue".
-3. Familiar selection: 10th-ranked rated image chosen as familiar (fallback to 10th if no data).
-4. Preference: 18 novel images paired with familiar, slider -3 to +3, left/right randomized, fixation between trials.
+This experiment is built with **jsPsych** and optimized for online data collection platforms like **Prolific**. It features a dynamic stimuli selection system that adjusts based on participant demographics (in-group vs. out-group face sets) and follows a structured flow of rating and preference trials.
 
-## Data Fields (high level)
-- `task`: `rating` or `preference`
-- `category_type`: `face` | `geometry` | `natural_scene`
-- `category`/`set_label`: specific folder ID (e.g., `Female-white-young_adult-neutral`, `Complex-symmetric`, `Beach`)
-- `stimulus_src`, `stimulus_label`
-- Rating: `rating`, `response`, `rt`, `utc_start`, `utc_end`
-- Preference: `preference`, `familiar_src/label`, `novel_src/label`, `familiar_side`, `novel_side`, `left_*`, `right_*`
+## 🚀 Key Features
 
-## Sharing / Deployment Tips
-- Keep `stimuli.js` generated, not hand-edited.
-- When adding images, follow folder naming conventions; rerun `node generate_stimuli.js`.
-- For Prolific/online use, swap the `on_finish` redirect in `experiment.js` for your completion URL.
-- Use version control to track changes; keep this README for collaborators.
+- **Multi-Category Stimuli**: Supports Face (demographic-linked), Geometric shapes, and Natural Scenes.
+- **Adaptive In-Grouping**: Automated selection of "in-group" face sets based on age, race, and gender responses.
+- **Dual-Phase Methodology**:
+  - **Rating Phase**: Participants rate 19 images on a 1-7 Likert scale.
+  - **Preference Phase**: Measures preference judgments (-3 to +3) between a familiar stimulus (10th-ranked) and novel stimuli.
+- **Seamless Prolific Integration**: Automatically captures `PROLIFIC_PID`, `STUDY_ID`, and `SESSION_ID` from URL parameters.
+- **Scalable Data Backend**: Pre-configured to work with Google Sheets via Google Apps Script for easy data storage.
 
-## Prolific Deployment (GitHub Pages)
+## 📂 Repository Structure
 
-You can host the task on GitHub Pages, but you **cannot store data on GitHub Pages** (it is static hosting only). For Prolific you should:
-
-1. Host your task (you already did):
-   - Example: https://cantonsir.github.io/online-f-n-task
-2. Save data to a server endpoint (recommended) and then redirect to Prolific completion.
-
-### Option A (simple): Save to Google Sheets via Apps Script
-
-This works well with GitHub Pages because your experiment can `POST` data to a Google Apps Script Web App.
-
-1. Create a Google Sheet (this is where rows will be saved).
-2. In Google Drive: New → More → Google Apps Script.
-3. Paste this script (replace `SHEET_NAME` if you want):
-
-```javascript
-const SHEET_NAME = 'data';
-
-function doPost(e) {
-  try {
-    const body = JSON.parse(e.postData.contents);
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_NAME) || ss.insertSheet(SHEET_NAME);
-
-    // Header row (only once)
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        'received_at',
-        'prolific_pid',
-        'study_id',
-        'session_id',
-        'started_at',
-        'finished_at',
-        'url',
-        'user_agent',
-        'data_csv'
-      ]);
-    }
-
-    sheet.appendRow([
-      new Date().toISOString(),
-      body.prolific_pid || '',
-      body.study_id || '',
-      body.session_id || '',
-      body.started_at || '',
-      body.finished_at || '',
-      body.url || '',
-      body.user_agent || '',
-      body.data_csv || ''
-    ]);
-
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: true }))
-      .setMimeType(ContentService.MimeType.JSON);
-  } catch (err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ ok: false, error: String(err) }))
-      .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+```text
+├── index.html          # Main entry point; loads jsPsych and core assets
+├── experiment.js       # Core timeline logic, randomization, and UI helpers
+├── questionnaires.js   # Definition of demographic and psychological surveys
+├── stimuli.js          # Auto-generated manifest of image assets
+├── generate_stimuli.js # Utility script to sync local images with stimuli.js
+├── styles.css          # Custom styling for the experiment interface
+└── Figure/             # Directory containing experimental stimuli
+    ├── Face/           # Demographic-categorized face images
+    ├── Geometry/       # Geometric pattern sets
+    └── Natural_scene/  # Environmental/Scene image sets
 ```
 
-4. Deploy: Deploy → New deployment → Type: **Web app**
-   - Execute as: **Me**
-   - Who has access: **Anyone** (or “Anyone with the link”)
-5. Copy the Web App URL.
-6. In `experiment.js`, set:
-   - `DATA_SUBMIT_URL` to your Web App URL
-   - `PROLIFIC_COMPLETION_CODE` to your Prolific completion code
+## 🛠️ Getting Started
 
-### Prolific URL parameters
+### Prerequisites
 
-Prolific automatically appends `PROLIFIC_PID`, `STUDY_ID`, `SESSION_ID` to your study URL.
-This project reads them and adds them to every trial via `jsPsych.data.addProperties()`.
+- [Node.js](https://nodejs.org/) (v14 or higher recommended)
+- `npm` (usually included with Node.js)
 
-### Completion redirect
+### Local Development
 
-At the end, the task can redirect participants to:
+1. **Install Dependencies**:
+   ```bash
+   npm install
+   ```
 
-`https://app.prolific.com/submissions/complete?cc=YOUR_CODE`
+2. **Sync Stimuli**:
+   If you add or remove images from the `Figure/` directory, update the manifest:
+   ```bash
+   node generate_stimuli.js
+   ```
 
-You can also pass the completion code during testing as a URL param:
+3. **Run Locally**:
+   Start a local server to view the experiment:
+   ```bash
+   npm run serve
+   ```
+   Open the provided URL (typically `http://localhost:8080`) in your browser.
 
-`?cc=YOUR_CODE`
+## 🌐 Deployment & Data Collection
 
+### 1. Hosting (GitHub Pages)
+The task is ready to be hosted as a static site. Simply enable **GitHub Pages** in your repository settings.
+
+### 2. Data Storage (Google Sheets Integration)
+Since GitHub Pages is static, you can use Google Apps Script as a lightweight backend:
+- Create a Google Sheet and an Apps Script.
+- Deploy the script as a **Web App** (Access: "Anyone").
+- Set `DATA_SUBMIT_URL` in `experiment.js` to your script URL.
+
+### 3. Prolific Setup
+Update the `PROLIFIC_COMPLETION_CODE` in `experiment.js` to ensure participants are redirected correctly after completion.
+
+## 📊 Data Output
+
+The experiment generates detailed CSV-ready data for each trial:
+- `task`: `rating` or `preference`
+- `category_type`: Image category (e.g., `face`, `geometry`)
+- `stimulus_label`: Identifier for the specific image.
+- `response`: The participant's rating or preference score.
+- `rt`: Reaction time in milliseconds.
+- `metadata`: Automatically captured Prolific IDs and session timing.
+
+## 📄 License
+This project is licensed under the MIT License - see the `LICENSE` file for details.
