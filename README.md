@@ -62,6 +62,18 @@ This experiment is built with **jsPsych** and optimized for online data collecti
    ```
    Open the provided URL (typically `http://localhost:8080`) in your browser.
 
+## 🛠️ Development & Debugging Modes
+
+The experiment supports several URL parameters to facilitate testing and debugging. Append these to your local URL (e.g., `http://localhost:8080?test_questionnaire`):
+
+| Parameter | Function | Example |
+| :--- | :--- | :--- |
+| `test_questionnaire` | **Questionnaire Mode**: Skips the main preference task and jumps straight to the questionnaire suite. | `?test_questionnaire` |
+| `save_test` | **Smoke Test**: Runs a small test to verify your `DATA_SUBMIT_URL` backend before starting the experiment. | `?save_test` |
+| `only_category` | **Category Focus**: Limits the experiment to a specific category (`face`, `geometry`, or `natural_scene`). | `?only_category=face` |
+| `only_set` | **Set Focus**: Limits the experiment to a specific stimuli set identifier. | `?only_set=Simple-symmetric` |
+| `cc` | **Completion Test**: Overrides the `PROLIFIC_COMPLETION_CODE` for testing redirects. | `?cc=TEST1234` |
+
 ## 🌐 Deployment & Data Collection
 
 ### 1. Hosting (GitHub Pages)

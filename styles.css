@@ -116,7 +116,7 @@ body {
   color: #ddd;
 }
 
-/* --- Professional Survey Styling (Standard Clean Design) --- */
+/* --- Professional Survey Styling (Modern Card Design) --- */
 
 /* Questionnaire Container */
 .jspsych-content {
@@ -131,25 +131,59 @@ body {
   /* Clean look */
 }
 
-/* Individual Question Row */
+/* Individual Question Row -> CARD CONTAINER */
 .jspsych-survey-likert-question {
-  margin-bottom: 60px !important;
-  border-bottom: 1px solid #333;
-  /* Subtle divider */
-  padding-bottom: 40px;
+  background-color: #262626;
+  /* Dark grey card, standard material dark surface */
+  border-radius: 16px;
+  /* More rounded corners */
+  padding: 2.5rem 3rem;
+  /* Generous padding */
+  margin-bottom: 2rem !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+  /* Soft, deep shadow */
+  text-align: left;
+  position: relative;
+  border: 1px solid #333;
+  /* Subtle separation border */
 }
 
 .jspsych-survey-likert-question:last-child {
-  border-bottom: none;
+  border-bottom: 1px solid #333;
+  margin-bottom: 2.5rem !important;
 }
 
-/* Question Text */
+/* Question Text Container */
 .jspsych-survey-likert-statement {
-  font-size: 1.15rem !important;
-  line-height: 1.4;
-  margin-bottom: 30px !important;
+  font-size: 1.35rem !important;
+  font-weight: 700;
+  line-height: 1.5;
+  margin-bottom: 2.5rem !important;
   color: #fff !important;
-  text-align: center;
+  text-align: left;
+  display: flex;
+  /* Use flex to align the bar and text */
+  align-items: center;
+  /* Vertically center */
+  border: none;
+  /* Remove old border approach */
+  padding: 0;
+}
+
+/* Blue Bar Accent (Rounded Pill) */
+.jspsych-survey-likert-statement::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 28px;
+  /* Fixed height matching text cap height approx */
+  background-color: #2196F3;
+  border-radius: 4px;
+  /* Fully rounded corners */
+  margin-right: 16px;
+  /* Space between bar and text */
+  flex-shrink: 0;
+  /* Prevent shrinking */
 }
 
 /* Options Container */
@@ -161,6 +195,8 @@ body {
   margin: 0 !important;
   width: 100% !important;
   position: relative;
+  gap: 0;
+  /* Let flex justify handle it, or small gap if needed */
 }
 
 
@@ -175,73 +211,92 @@ body {
 
 /* Individual Option Item */
 .jspsych-survey-likert-opts li {
-  flex: 1 1 0 !important;
-  /* Grow, Shrink, Basis 0 - Forces equality */
+  flex: 1 !important;
   text-align: center;
   position: relative;
-  z-index: 1;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  min-width: 0 !important;
-  /* Prevents overflow from forcing width */
-}
-
-/* Radio Button */
-.jspsych-survey-likert-opts input[type="radio"] {
-  margin: 0 0 10px 0 !important;
-  width: 18px;
-  height: 18px;
   cursor: pointer;
-  appearance: none;
-  /* Reset default look */
-  -webkit-appearance: none;
-  border: 2px solid #888;
-  border-radius: 50%;
-  background-color: #222;
-  /* Matches background to hide line */
-  position: relative;
-  z-index: 2;
 }
 
-/* Checked State - Custom Circle */
-.jspsych-survey-likert-opts input[type="radio"]:checked {
-  border-color: #4CAF50;
-  /* Green highlight when selected */
-  background-color: #4CAF50;
-  box-shadow: 0 0 0 3px #222 inset;
-  /* Creates a ring effect */
+.jspsych-survey-likert-opts li:hover {
+  transform: translateY(-2px);
 }
+
+/* 
+   We need to style the label containing the input mostly, 
+   but jsPsych structure is often: 
+   <li> <label class="jspsych-survey-likert-opt-label"> <input ... > Text </label> </li>
+   OR
+   <li> <input ... > <label ... > Text </label> </li>
+   
+   Let's target the input and create a custom visual.
+*/
+
+/* Radio Button Reset & Custom Visual */
+.jspsych-survey-likert-opts input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0 0 16px 0 !important;
+  /* Space between circle and label */
+
+  /* Size per user preference */
+  width: 26px;
+  height: 26px;
+
+  border: 2px solid #666;
+  /* Muted border */
+  border-radius: 50%;
+  background-color: transparent;
+  /* Empty by default */
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover State for Radio */
+.jspsych-survey-likert-opts input[type="radio"]:hover {
+  border-color: #bbb;
+  transform: scale(1.1);
+}
+
+/* Checked State */
+.jspsych-survey-likert-opts input[type="radio"]:checked {
+  border-color: #2196F3;
+  /* Vivid Blue border */
+  background-color: #2196F3;
+  /* Solid Blue fill */
+  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.25);
+  /* Glow ring */
+}
+
+/* Inner dot for checked state (optional, if we want a bullseye look, but solid filled is modern too) 
+   Let's keep it solid filled as per "interactive tiles" description, or maybe a simple checkmark icon.
+   Let's stick to solid filled circle for now as it's clear.
+*/
 
 /* Label Text */
 .jspsych-survey-likert-opt-label {
-  font-size: 0.85rem !important;
-  color: #ccc !important;
-  line-height: 1.2;
+  font-size: 0.9rem !important;
+  color: #a0a0a0 !important;
+  line-height: 1.35;
+  font-weight: 500;
+  transition: color 0.2s;
+  max-width: 110px;
 }
 
-/* Continue Button */
-.jspsych-btn {
-  background-color: #222 !important;
-  border: 1px solid #666 !important;
+/* Highlight label when selected/hovered */
+.jspsych-survey-likert-opts li:hover .jspsych-survey-likert-opt-label {
   color: #fff !important;
-  padding: 12px 30px !important;
-  font-size: 1.1rem !important;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.2s;
 }
 
-.jspsych-btn:hover {
-  background-color: #444 !important;
-  border-color: #fff !important;
-}
-
-
+/* Continue Button container */
 #jspsych-survey-likert-next {
   text-align: center;
-  margin-top: 2rem;
+  margin-top: 4rem;
+  margin-bottom: 4rem;
 }
 
 /* --- Scrollbar Styling --- */
