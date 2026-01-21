@@ -35,6 +35,7 @@ const scale6ptAgree = [
 ];
 
 // --- Helper for Single Page Block ---
+// --- Helper for Single Page Block ---
 function makeLikertBlock(title, instructions, questions, scale, prefix, preambleOverride) {
     // 1. Format Questions
     const formattedQuestions = questions.map((q, i) => ({
@@ -66,7 +67,7 @@ function makeLikertBlock(title, instructions, questions, scale, prefix, preamble
             // Start time relative to when the trial loads
             const startTime = performance.now();
 
-            // Attach listeners to all radio inputs
+            // 1. Log timings for direct radio clicks
             const radios = document.querySelectorAll('input[type="radio"]');
             radios.forEach(radio => {
                 radio.addEventListener('click', (e) => {
@@ -79,6 +80,21 @@ function makeLikertBlock(title, instructions, questions, scale, prefix, preamble
                         value: value,
                         rt_ms: Math.round(rt)
                     };
+                });
+            });
+
+            // 2. Make the entire LI (tile) clickable
+            const options = document.querySelectorAll('.jspsych-survey-likert-opts li');
+            options.forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    // Prevent recursion if the user actually clicked the input directly
+                    if (e.target.tagName === 'INPUT') return;
+
+                    // Find the radio inside this option
+                    const radio = opt.querySelector('input[type="radio"]');
+                    if (radio) {
+                        radio.click(); // Trigger native click logic (checking + events)
+                    }
                 });
             });
         },
