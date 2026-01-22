@@ -515,14 +515,9 @@ function buildFaceSetPlan(index, profile) {
   const allKeys = [...faceMap.keys()];
   const candidates = allKeys.filter(k => {
     if (k === ingroup) return false;
-    if (ingroupRace) {
-      // Assuming naive naming convention matches: starts with "Gender-Race-"
-      const kParts = k.split('-');
-      if (kParts.length >= 2) {
-        const kRace = kParts[1].toLowerCase();
-        if (kRace === ingroupRace) return false;
-      }
-    }
+    // Race exclusion removed per user request:
+    // "out group, should be random selected from the rest of subcategory"
+    // if (kRace === ingroupRace) return false;
     return true;
   });
 
@@ -1425,7 +1420,23 @@ async function main() {
         builtTimeline.push(...timelineFromSets);
       }
 
+      // Transition screen before questionnaires
+      const questionnaireIntro = {
+        type: jsPsychHtmlKeyboardResponse,
+        stimulus: `
+          <div class="practice-container" style="text-align:center;">
+            <h2>Visual Task Complete</h2>
+            <p>You have finished the image evaluation and preference tasks.</p>
+            <p>Next, you will be asked to complete a series of questionnaires.</p>
+            <p style="margin-top:2rem;">Press <strong>Space</strong> to continue.</p>
+          </div>
+        `,
+        choices: [' '],
+        data: { trial_type: 'questionnaire_intro' }
+      };
+
       // Add Full Questionnaire Suite after the task (or alone if testing)
+      builtTimeline.push(questionnaireIntro);
       builtTimeline.push(...getAllQuestionnaireBlocks());
 
       builtTimeline.push(outroBlock, exitFullscreenBlock);

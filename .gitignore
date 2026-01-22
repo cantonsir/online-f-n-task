@@ -9,3 +9,10 @@ yarn-error.log*
 
 .DS_Store
 Thumbs.db
+
+# Experiments / Local data
+Analysis/
+result_data/
+analysis_output.txt
+analyze_data.py
+test.py
