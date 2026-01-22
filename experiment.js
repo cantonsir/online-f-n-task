@@ -1030,7 +1030,7 @@ async function main() {
         <h2>Informed Consent</h2>
         <p><strong>Purpose:</strong> You are invited to participate in a research study about visual perception and aesthetics. The purpose is to understand how people evaluate the attractiveness of different scenes.</p>
         
-        <p><strong>Procedure:</strong> In this task, you will view a series of images and rate their attractiveness using a slider. The task will take approximately 45-60 minutes.</p>
+        <p><strong>Procedure:</strong> In this task, you will view a series of images and rate their attractiveness using a slider. The task will take approximately 1 hour.</p>
         
         <p><strong>Risks and Benefits:</strong> There are no known risks associated with this study beyond those encountered in daily life. There are no direct benefits to you, but your participation will contribute to scientific knowledge.</p>
         
