@@ -39,7 +39,7 @@ const DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24Gq
 // 2) Put your Prolific completion code here.
 // You can also provide it as a URL param: ?cc=XXXXXX
 // const PROLIFIC_COMPLETION_CODE = 'C165LFSB';
-const PROLIFIC_COMPLETION_CODE = 'C1CUJ5JA';
+const PROLIFIC_COMPLETION_CODE = 'C10OV8E4';
 
 function prolificCompleteUrl(completionCode) {
   if (!completionCode) return null;
