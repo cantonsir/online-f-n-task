@@ -741,12 +741,6 @@ function buildSetTimelineEntries({ category, set_id, set_label, stimuli }, ratin
         };
 
         pushRatingToCache(ratingCache, data.category, cachedRow);
-
-        try {
-          jsPsych.data.write({ ...cachedRow, wrote_fallback: true });
-        } catch (e) {
-          console.warn('[DEBUG] fallback write failed', e);
-        }
       }
     });
 

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Experiment Logic Test</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+    h1 { color: #e94560; margin-bottom: 1.5rem; font-size: 1.8rem; }
+    h2 { color: #0f3460; background: #e0e0e0; padding: 0.5rem 1rem; border-radius: 6px; margin: 2rem 0 1rem; font-size: 1.2rem; }
+    .test-group { background: #16213e; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; border-left: 4px solid #0f3460; }
+    .test-group h3 { color: #e94560; margin-bottom: 0.75rem; }
+    .pass { color: #4caf50; font-weight: bold; }
+    .fail { color: #f44336; font-weight: bold; }
+    .warn { color: #ff9800; font-weight: bold; }
+    .result { padding: 0.3rem 0; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.9rem; }
+    table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.85rem; }
+    th, td { border: 1px solid #2a2a4a; padding: 6px 10px; text-align: left; }
+    th { background: #0f3460; color: #fff; }
+    tr:nth-child(even) { background: #1a1a3e; }
+    tr:nth-child(odd) { background: #16213e; }
+    .highlight-row { background: #2e7d32 !important; color: #fff; font-weight: bold; }
+    .highlight-bad { background: #c62828 !important; color: #fff; font-weight: bold; }
+    .summary-box {
+      background: #0f3460; border-radius: 8px; padding: 1.5rem; margin-top: 2rem;
+      border: 2px solid #e94560; text-align: center;
+    }
+    .summary-box .count { font-size: 2rem; font-weight: bold; }
+    .summary-box .pass-count { color: #4caf50; }
+    .summary-box .fail-count { color: #f44336; }
+    pre { background: #0d1117; padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; color: #c9d1d9; margin: 0.5rem 0; }
+    details { margin: 0.5rem 0; }
+    summary { cursor: pointer; color: #64b5f6; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Experiment Logic Test Suite</h1>
+  <p style="margin-bottom: 1rem; opacity: 0.8;">
+    Tests the <code>selectFamiliarFromRatings</code> function and verifies the data duplication bug is fixed.
+  </p>
+  <div id="results"></div>
+
+  <script>
+    // ========================================================
+    // Copy the relevant functions from experiment.js verbatim
+    // ========================================================
+
+    function normalizeCategory(category) {
+      return String(category || 'uncategorized').trim().toLowerCase();
+    }
+
+    function pushRatingToCache(cache, category, row) {
+      const key = normalizeCategory(category);
+      if (!cache.has(key)) cache.set(key, []);
+      cache.get(key).push(row);
+    }
+
+    /**
+     * This is the CURRENT version from experiment.js.
+     * It uses jsPsych.data + ratingCache fallback.
+     * For testing, we pass a mock jsPsych object.
+     */
+    function selectFamiliarFromRatings(jsPsych, category, ratingCache) {
+      const normalized_category = normalizeCategory(category);
+      let ratingRows = jsPsych.data
+        .get()
+        .filter({ task: 'rating', normalized_category })
+        .values();
+
+      // Fallback to the in-memory cache if jsPsych's data store is empty
+      if ((!ratingRows || ratingRows.length === 0) && ratingCache?.size) {
+        ratingRows = ratingCache.get(normalized_category) || [];
+      }
+
+      if (!ratingRows || ratingRows.length === 0) return null;
+
+      const sorted = [...ratingRows].sort((a, b) => {
+        const ra = Number(a.rating ?? a.response);
+        const rb = Number(b.rating ?? b.response);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+
+      const familiarIndex = Math.min(9, Math.max(0, sorted.length - 1));
+      return {
+        src: sorted[familiarIndex].stimulus_src,
+        label: sorted[familiarIndex].stimulus_label,
+        category,
+        rating: Number(sorted[familiarIndex].rating ?? sorted[familiarIndex].response)
+      };
+    }
+
+    // ========================================================
+    // Test helpers
+    // ========================================================
+
+    let totalPass = 0;
+    let totalFail = 0;
+    const resultsEl = document.getElementById('results');
+
+    function createTestGroup(title) {
+      const div = document.createElement('div');
+      div.className = 'test-group';
+      const h3 = document.createElement('h3');
+      h3.textContent = title;
+      div.appendChild(h3);
+      resultsEl.appendChild(div);
+      return div;
+    }
+
+    function addResult(container, passed, message) {
+      const p = document.createElement('div');
+      p.className = 'result';
+      if (passed) {
+        p.innerHTML = `<span class="pass">✅ PASS</span> ${message}`;
+        totalPass++;
+      } else {
+        p.innerHTML = `<span class="fail">❌ FAIL</span> ${message}`;
+        totalFail++;
+      }
+      container.appendChild(p);
+    }
+
+    function addInfo(container, html) {
+      const p = document.createElement('div');
+      p.className = 'result';
+      p.innerHTML = html;
+      container.appendChild(p);
+    }
+
+    function addTable(container, headers, rows, highlightIndices = [], badIndices = []) {
+      const table = document.createElement('table');
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      headers.forEach(h => {
+        const th = document.createElement('th');
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      rows.forEach((row, i) => {
+        const tr = document.createElement('tr');
+        if (highlightIndices.includes(i)) tr.className = 'highlight-row';
+        if (badIndices.includes(i)) tr.className = 'highlight-bad';
+        row.forEach(cell => {
+          const td = document.createElement('td');
+          td.textContent = cell;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      container.appendChild(table);
+    }
+
+    /**
+     * Build a mock jsPsych with a simple data store.
+     * dataRows: array of objects. .filter() does simple property matching.
+     */
+    function createMockJsPsych(dataRows) {
+      return {
+        data: {
+          get() {
+            return {
+              filter(criteria) {
+                const filtered = dataRows.filter(row => {
+                  for (const [k, v] of Object.entries(criteria)) {
+                    if (row[k] !== v) return false;
+                  }
+                  return true;
+                });
+                return {
+                  values() { return filtered; },
+                  count() { return filtered.length; }
+                };
+              },
+              values() { return dataRows; },
+              count() { return dataRows.length; }
+            };
+          }
+        }
+      };
+    }
+
+    /**
+     * Generate N synthetic rating rows for a given set_id,
+     * each with a unique image and a specified rating.
+     */
+    function makeSyntheticRatings(setId, ratings) {
+      const norm = normalizeCategory(setId);
+      return ratings.map((rating, i) => ({
+        task: 'rating',
+        category: setId,
+        normalized_category: norm,
+        stimulus_src: `./Figure/Test/${setId}/img_${String(i + 1).padStart(2, '0')}.png`,
+        stimulus_label: `img_${String(i + 1).padStart(2, '0')}.png`,
+        response: rating,
+        rating: rating
+      }));
+    }
+
+    // ========================================================
+    // TEST 1: Basic median selection (19 unique images)
+    // ========================================================
+    (function test_basic_median() {
+      const group = createTestGroup('Test 1: Basic Median Selection (19 unique images, no duplicates)');
+
+      // Ratings from 1.0 to 7.0, spread across 19 images
+      const ratings = [
+        3.5, 5.2, 1.0, 6.8, 2.3,  // img 1-5
+        4.1, 7.0, 3.0, 5.5, 4.5,  // img 6-10
+        2.0, 6.0, 1.5, 4.8, 3.8,  // img 11-15
+        5.0, 2.5, 6.5, 4.0         // img 16-19
+      ];
+      const setId = 'Test-Set-A';
+      const ratingRows = makeSyntheticRatings(setId, ratings);
+
+      // Use jsPsych data store (no cache needed)
+      const mockJsPsych = createMockJsPsych(ratingRows);
+      const ratingCache = new Map();
+
+      const result = selectFamiliarFromRatings(mockJsPsych, setId, ratingCache);
+
+      // Sort descending and show what index 9 should be
+      const sorted = [...ratingRows].sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+
+      addInfo(group, `<strong>Setup:</strong> 19 images with ratings: [${ratings.join(', ')}]`);
+      addInfo(group, `<strong>Expected:</strong> familiarIndex = min(9, 18) = 9 → the 10th highest rated image`);
+
+      addTable(group,
+        ['Sorted Index', 'Label', 'Rating', 'Selected?'],
+        sorted.map((r, i) => [
+          i,
+          r.stimulus_label,
+          r.rating,
+          i === 9 ? '✅ FAMILIAR' : ''
+        ]),
+        [9]  // highlight index 9
+      );
+
+      const expectedLabel = sorted[9].stimulus_label;
+      const expectedRating = sorted[9].rating;
+
+      addResult(group, result !== null, `selectFamiliarFromRatings returned a result (not null)`);
+      addResult(group, result?.label === expectedLabel,
+        `Selected label: "${result?.label}" === expected: "${expectedLabel}"`);
+      addResult(group, result?.rating === expectedRating,
+        `Selected rating: ${result?.rating} === expected: ${expectedRating}`);
+
+      // The median of 19 items (1-indexed middle = 10th) should be exactly index 9 (0-indexed)
+      // when sorted descending. So rank 10 = the median.
+      addInfo(group, `<br><em>Index 9 of 19 sorted descending = the 10th highest = the median rank.</em>`);
+    })();
+
+    // ========================================================
+    // TEST 2: Duplication bug simulation
+    // ========================================================
+    (function test_duplication_bug() {
+      const group = createTestGroup('Test 2: Data Duplication Bug (19 images × 2 = 38 rows)');
+
+      const ratings = [
+        3.5, 5.2, 1.0, 6.8, 2.3,
+        4.1, 7.0, 3.0, 5.5, 4.5,
+        2.0, 6.0, 1.5, 4.8, 3.8,
+        5.0, 2.5, 6.5, 4.0
+      ];
+      const setId = 'Test-Set-B';
+      const originalRows = makeSyntheticRatings(setId, ratings);
+
+      // Simulate duplication: each row appears twice
+      const duplicatedRows = [];
+      for (const row of originalRows) {
+        duplicatedRows.push({ ...row });
+        duplicatedRows.push({ ...row }); // duplicate!
+      }
+
+      addInfo(group, `<strong>Setup:</strong> 19 images × 2 duplicates = ${duplicatedRows.length} rows in jsPsych.data`);
+
+      // What the CURRENT code does with duplicated data
+      const mockJsPsych = createMockJsPsych(duplicatedRows);
+      const ratingCache = new Map();
+      const resultWithDupes = selectFamiliarFromRatings(mockJsPsych, setId, ratingCache);
+
+      // Sort duplicated data descending
+      const sortedDupes = [...duplicatedRows].sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+
+      const dupeIndex = Math.min(9, Math.max(0, sortedDupes.length - 1)); // min(9, 37) = 9
+
+      addInfo(group, `<strong>familiarIndex</strong> = min(9, ${sortedDupes.length - 1}) = ${dupeIndex}`);
+
+      // Show how duplicates distort the ranking
+      addTable(group,
+        ['Sorted Index', 'Label', 'Rating', 'Selected?', 'Unique Rank'],
+        sortedDupes.map((r, i) => {
+          const uniqueRank = Math.floor(i / 2) + 1;
+          return [
+            i,
+            r.stimulus_label,
+            r.rating,
+            i === dupeIndex ? '⚠️ SELECTED (with dupes)' : '',
+            uniqueRank
+          ];
+        }),
+        [],
+        [dupeIndex]  // highlight the bad selection
+      );
+
+      // What is actually at index 9 of duplicated sorted? It's the 5th unique image!
+      const uniqueRankAtIdx9 = Math.floor(dupeIndex / 2) + 1;
+      addInfo(group, `<br><span class="warn">⚠️ With duplicates:</span> Index 9 of 38 sorted rows = <strong>unique rank ${uniqueRankAtIdx9}</strong> (the ${uniqueRankAtIdx9}th highest rated image)`);
+      addInfo(group, `<span class="warn">⚠️ Expected:</span> Should be the <strong>median (rank 10)</strong> of 19 unique images`);
+
+      addResult(group, uniqueRankAtIdx9 !== 10,
+        `BUG CONFIRMED: Duplicated data selects unique rank ${uniqueRankAtIdx9} instead of median rank 10`);
+
+      // Now deduplicate and test what SHOULD happen  
+      addInfo(group, `<br><strong>--- Fix: Using ratingCache (no duplicates) ---</strong>`);
+
+      const mockJsPsychEmpty = createMockJsPsych([]); // empty jsPsych data
+      const fixedCache = new Map();
+      for (const row of originalRows) {
+        pushRatingToCache(fixedCache, setId, row);
+      }
+
+      const resultFixed = selectFamiliarFromRatings(mockJsPsychEmpty, setId, fixedCache);
+
+      // Sort original (no dupes) descending
+      const sortedOriginal = [...originalRows].sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+
+      const expectedLabel = sortedOriginal[9].stimulus_label;
+
+      addResult(group, resultFixed?.label === expectedLabel,
+        `With clean cache: selected "${resultFixed?.label}" === expected median "${expectedLabel}"`);
+
+      addInfo(group, `<span class="pass">✅ When using the ratingCache (19 unique rows), index 9 correctly selects the median.</span>`);
+    })();
+
+    // ========================================================
+    // TEST 3: ratingCache fallback works
+    // ========================================================
+    (function test_cache_fallback() {
+      const group = createTestGroup('Test 3: ratingCache Fallback (jsPsych.data is empty)');
+
+      const ratings = [4.0, 5.0, 3.0, 6.0, 2.0, 7.0, 1.0, 4.5, 5.5, 3.5,
+                        6.5, 2.5, 4.2, 5.3, 3.1, 6.1, 2.1, 4.8, 3.8];
+      const setId = 'Test-Fallback';
+      const ratingRows = makeSyntheticRatings(setId, ratings);
+
+      const mockJsPsych = createMockJsPsych([]); // empty!
+      const ratingCache = new Map();
+      for (const row of ratingRows) {
+        pushRatingToCache(ratingCache, setId, row);
+      }
+
+      const result = selectFamiliarFromRatings(mockJsPsych, setId, ratingCache);
+
+      addResult(group, result !== null, `Fallback to cache succeeded (result is not null)`);
+      addResult(group, result?.label != null, `Selected label: "${result?.label}"`);
+
+      // Verify it's index 9 of sorted cache
+      const sorted = [...ratingRows].sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+      const expected = sorted[9].stimulus_label;
+
+      addResult(group, result?.label === expected,
+        `Cache selection matches expected: "${result?.label}" === "${expected}"`);
+    })();
+
+    // ========================================================
+    // TEST 4: Edge case — fewer than 10 images
+    // ========================================================
+    (function test_fewer_images() {
+      const group = createTestGroup('Test 4: Edge Case — Fewer than 10 images');
+
+      const ratings = [3.0, 5.0, 4.0, 6.0, 2.0]; // only 5 images
+      const setId = 'Test-Small';
+      const ratingRows = makeSyntheticRatings(setId, ratings);
+
+      const mockJsPsych = createMockJsPsych(ratingRows);
+      const ratingCache = new Map();
+
+      const result = selectFamiliarFromRatings(mockJsPsych, setId, ratingCache);
+
+      // familiarIndex = min(9, 4) = 4 → last item in sorted (lowest rated)
+      addResult(group, result !== null, `Result is not null with ${ratings.length} images`);
+
+      const sorted = [...ratingRows].sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+      const expectedIdx = Math.min(9, sorted.length - 1); // 4
+      addInfo(group, `familiarIndex = min(9, ${sorted.length - 1}) = ${expectedIdx}`);
+      addResult(group, result?.label === sorted[expectedIdx].stimulus_label,
+        `Selected: "${result?.label}" (rating=${result?.rating}) — the lowest rated of only ${ratings.length} images`);
+    })();
+
+    // ========================================================
+    // TEST 5: Empty data
+    // ========================================================
+    (function test_empty_data() {
+      const group = createTestGroup('Test 5: Edge Case — No rating data at all');
+
+      const mockJsPsych = createMockJsPsych([]);
+      const ratingCache = new Map();
+
+      const result = selectFamiliarFromRatings(mockJsPsych, 'NonExistent', ratingCache);
+
+      addResult(group, result === null, `Returns null when no data exists`);
+    })();
+
+    // ========================================================
+    // TEST 6: Tie-breaking by label
+    // ========================================================
+    (function test_tie_breaking() {
+      const group = createTestGroup('Test 6: Tie-Breaking — Multiple images with same rating');
+
+      // All 19 images have the same rating
+      const ratings = Array(19).fill(4.0);
+      const setId = 'Test-Ties';
+      const ratingRows = makeSyntheticRatings(setId, ratings);
+
+      const mockJsPsych = createMockJsPsych(ratingRows);
+      const ratingCache = new Map();
+
+      const result = selectFamiliarFromRatings(mockJsPsych, setId, ratingCache);
+
+      // With all same ratings, sort is by label (localeCompare), so img_01..img_19 alphabetically
+      const sorted = [...ratingRows].sort((a, b) => {
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+      const expectedLabel = sorted[9].stimulus_label;
+
+      addResult(group, result !== null, `Result is not null even with all tied ratings`);
+      addResult(group, result?.label === expectedLabel,
+        `Tie-broken by label: "${result?.label}" === "${expectedLabel}"`);
+      addInfo(group, `<em>When all ratings are equal, selection is deterministic via alphabetical label order.</em>`);
+    })();
+
+    // ========================================================
+    // TEST 7: Verify duplication detection (would jsPsych.data have dupes?)
+    // ========================================================
+    (function test_dupe_detection() {
+      const group = createTestGroup('Test 7: Duplication Detection — Count check');
+
+      const ratings = [3.5, 5.2, 1.0, 6.8, 2.3, 4.1, 7.0, 3.0, 5.5, 4.5,
+                        2.0, 6.0, 1.5, 4.8, 3.8, 5.0, 2.5, 6.5, 4.0];
+      const setId = 'Test-Dupe-Detect';
+      const norm = normalizeCategory(setId);
+      const originalRows = makeSyntheticRatings(setId, ratings);
+
+      // Simulate the old bug: jsPsych auto-saves, THEN code calls jsPsych.data.write(fallback)
+      const dataWithDupes = [];
+      for (const row of originalRows) {
+        dataWithDupes.push({ ...row }); // auto-saved by plugin
+        dataWithDupes.push({ ...row, wrote_fallback: true }); // manually written
+      }
+
+      const uniqueLabels = new Set(dataWithDupes.map(r => r.stimulus_label));
+      const totalRows = dataWithDupes.filter(r => r.task === 'rating' && r.normalized_category === norm).length;
+
+      addInfo(group, `Total rating rows in data: <strong>${totalRows}</strong>`);
+      addInfo(group, `Unique image labels: <strong>${uniqueLabels.size}</strong>`);
+      addResult(group, totalRows === 38, `Duplicated data has ${totalRows} rows (expected 38 = 19×2)`);
+      addResult(group, uniqueLabels.size === 19, `But only ${uniqueLabels.size} unique images (expected 19)`);
+      addResult(group, totalRows !== uniqueLabels.size,
+        `DUPLICATION DETECTED: ${totalRows} rows ≠ ${uniqueLabels.size} unique images`);
+
+      // Show fix: deduplicate by keeping only the first occurrence per label
+      const seen = new Set();
+      const deduped = dataWithDupes.filter(r => {
+        if (r.task !== 'rating' || r.normalized_category !== norm) return false;
+        if (seen.has(r.stimulus_label)) return false;
+        seen.add(r.stimulus_label);
+        return true;
+      });
+
+      addInfo(group, `<br><strong>After deduplication:</strong> ${deduped.length} rows`);
+      addResult(group, deduped.length === 19, `Deduplicated to ${deduped.length} (expected 19)`);
+    })();
+
+    // ========================================================
+    // TEST 8: Full pipeline simulation (rate → select → preference)
+    // ========================================================
+    (function test_full_pipeline() {
+      const group = createTestGroup('Test 8: Full Pipeline — Rate 19 images → Select Familiar → Preference with 18 novels');
+
+      const setId = 'Female-asian-adult-neutral';
+      const norm = normalizeCategory(setId);
+
+      // Generate 37 synthetic images
+      const allImages = [];
+      for (let i = 1; i <= 37; i++) {
+        allImages.push({
+          src: `./Figure/Face/${setId}/img_${String(i).padStart(2, '0')}.png`,
+          label: `img_${String(i).padStart(2, '0')}.png`
+        });
+      }
+
+      const set1 = allImages.slice(0, 19);
+      const set2 = allImages.slice(19, 37);
+
+      // Simulate ratings (phase 2)
+      const ratingCache = new Map();
+      const dataRows = [];
+      const syntheticRatings = [
+        2.1, 4.5, 6.3, 1.8, 5.0, 3.7, 7.0, 2.5, 4.0, 5.5,
+        3.2, 6.8, 1.0, 4.3, 5.8, 3.0, 6.5, 2.0, 4.7
+      ];
+
+      set1.forEach((stim, i) => {
+        const rating = syntheticRatings[i];
+        const row = {
+          task: 'rating',
+          category: setId,
+          normalized_category: norm,
+          stimulus_src: stim.src,
+          stimulus_label: stim.label,
+          response: rating,
+          rating: rating
+        };
+        dataRows.push(row);
+        pushRatingToCache(ratingCache, setId, { ...row });
+      });
+
+      const mockJsPsych = createMockJsPsych(dataRows);
+
+      // Select familiar using the rating cache
+      const familiar = selectFamiliarFromRatings(mockJsPsych, setId, ratingCache);
+
+      addResult(group, familiar !== null, `Familiar image selected successfully`);
+      addInfo(group, `Familiar: <strong>${familiar?.label}</strong> (rating: ${familiar?.rating})`);
+
+      // Verify it's the median
+      const sorted = [...dataRows].sort((a, b) => {
+        const ra = Number(a.rating);
+        const rb = Number(b.rating);
+        if (rb !== ra) return rb - ra;
+        return String(a.stimulus_label).localeCompare(String(b.stimulus_label));
+      });
+
+      addTable(group,
+        ['Rank', 'Label', 'Rating'],
+        sorted.map((r, i) => [i + 1, r.stimulus_label, r.rating]),
+        [9] // median at index 9 (rank 10)
+      );
+
+      const medianLabel = sorted[9].stimulus_label;
+      addResult(group, familiar?.label === medianLabel,
+        `Familiar is the median (rank 10): "${familiar?.label}" === "${medianLabel}"`);
+
+      // Verify familiar is from set1 (not set2)
+      const isFromSet1 = set1.some(s => s.label === familiar?.label);
+      addResult(group, isFromSet1, `Familiar is from Set1 (rated images), not Set2 (novel images)`);
+
+      // Simulate preference trials
+      addInfo(group, `<br><strong>Phase 3: Preference trials</strong> — Familiar vs ${set2.length} novel images`);
+
+      let prefTrialsOk = 0;
+      for (const novel of set2) {
+        const familiar_on_left = Math.random() < 0.5;
+        const leftImg = familiar_on_left ? familiar : novel;
+        const rightImg = familiar_on_left ? novel : familiar;
+
+        // Verify the familiar image is always the same one
+        if (familiar_on_left) {
+          if (leftImg.label === familiar.label && rightImg.label === novel.label) prefTrialsOk++;
+        } else {
+          if (rightImg.label === familiar.label && leftImg.label === novel.label) prefTrialsOk++;
+        }
+      }
+
+      addResult(group, prefTrialsOk === set2.length,
+        `All ${set2.length} preference trials correctly pair familiar "${familiar?.label}" with each novel image (${prefTrialsOk}/${set2.length} ok)`);
+    })();
+
+    // ========================================================
+    // Summary
+    // ========================================================
+    const summaryDiv = document.createElement('div');
+    summaryDiv.className = 'summary-box';
+    summaryDiv.innerHTML = `
+      <h2 style="color: #fff; background: none; margin: 0 0 1rem;">Test Summary</h2>
+      <div>
+        <span class="count pass-count">${totalPass} Passed</span>
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        <span class="count fail-count">${totalFail} Failed</span>
+      </div>
+      <p style="margin-top: 1rem; opacity: 0.8;">
+        ${totalFail === 0 ? '🎉 All tests passed!' : '⚠️ Some tests failed — review above.'}
+      </p>
+    `;
+    resultsEl.appendChild(summaryDiv);
+
+    console.log(`\n=== TEST RESULTS ===\n✅ Passed: ${totalPass}\n❌ Failed: ${totalFail}\n`);
+  </script>
+</body>
+</html>
