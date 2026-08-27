@@ -43,12 +43,13 @@
     `;
   }
 
-  function preferenceHtml(familiar, novel, familiarOnLeft) {
+  function preferenceHtml(familiar, novel, familiarOnLeft, trialNumber, trialTotal) {
     const left = familiarOnLeft ? familiar : novel;
     const right = familiarOnLeft ? novel : familiar;
 
     return `
       <div class="preference-container" style="max-width:1100px;margin:0 auto;">
+        <div style="text-align:center;margin-bottom:1rem;font-weight:700;">Preference trial ${trialNumber} of ${trialTotal}</div>
         <div class="practice-grid" style="grid-template-columns:1fr 1fr;align-items:start;gap:2rem;">
           <div style="text-align:center;">
             <img src="${left.src}" alt="${left.label}" style="max-width:100%;height:auto;" />
@@ -128,7 +129,7 @@
         <div class="practice-container" style="text-align:center;line-height:1.6;max-width:720px;">
           <div style="display:inline-block;padding:.35rem .75rem;border:1px solid #72c7ff;border-radius:999px;color:#9dd9ff;font-weight:700;">Demonstration only</div>
           <h2 style="margin-top:1.25rem;">Demo complete</h2>
-          <p>You completed one shortened task block.</p>
+          <p>You completed one full Simple-symmetric geometry subcategory.</p>
           <p><strong>No responses or personal information were recorded or submitted.</strong></p>
           <button id="restart-demo" class="jspsych-btn" type="button" style="margin-top:1rem;">Restart demo</button>
         </div>
@@ -142,7 +143,7 @@
 
   timeline.push({
     type: jsPsychPreload,
-    images: [practiceStimulus, ...set1, ...demonstratedNovelStimuli].map((stimulus) => stimulus.src)
+    images: [practiceStimulus, ...set1, ...set2].map((stimulus) => stimulus.src)
   });
 
   timeline.push({
@@ -356,7 +357,7 @@
     choices: [' ']
   });
 
-  set2.forEach((novel) => {
+  set2.forEach((novel, preferenceIndex) => {
     const familiarOnLeft = Math.random() < 0.5;
 
     timeline.push({
@@ -369,7 +370,7 @@
     timeline.push({
       type: jsPsychHtmlSliderResponse,
       css_classes: ['visual-task'],
-      stimulus: () => preferenceHtml(selectFamiliar(), novel, familiarOnLeft),
+      stimulus: () => preferenceHtml(selectFamiliar(), novel, familiarOnLeft, preferenceIndex + 1, set2.length),
       min: -3,
       max: 3,
       step: 0.01,
