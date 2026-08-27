@@ -31,7 +31,40 @@ function isFullscreen() {
   );
 }
 
-// === Prolific + saving configuration ===
+// === Experiment mode, participant IDs, and saving configuration ===
+// index.html sets "prolific"; public.html sets "public".
+const EXPERIMENT_MODE = window.EXPERIMENT_MODE === 'public' ? 'public' : 'prolific';
+
+function createAnonymousId(prefix) {
+  const value = globalThis.crypto?.randomUUID?.()
+    || `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  return `${prefix}_${value}`;
+}
+
+function getOrCreatePublicParticipantId() {
+  const storageKey = 'online_fn_public_participant_id';
+
+  try {
+    const existingId = window.localStorage.getItem(storageKey);
+    if (existingId) return existingId;
+
+    const newId = createAnonymousId('public');
+    window.localStorage.setItem(storageKey, newId);
+    return newId;
+  } catch {
+    // Private browsing or browser policy can make localStorage unavailable.
+    return createAnonymousId('public');
+  }
+}
+
+const prolific_pid = getUrlParam('PROLIFIC_PID') || null;
+const participant_id = EXPERIMENT_MODE === 'public'
+  ? getOrCreatePublicParticipantId()
+  : prolific_pid;
+const study_id = getUrlParam('STUDY_ID') || (EXPERIMENT_MODE === 'public' ? 'public' : null);
+const session_id = getUrlParam('SESSION_ID') || (EXPERIMENT_MODE === 'public' ? createAnonymousId('session') : null);
+const recruitment_source = getUrlParam('source') || (EXPERIMENT_MODE === 'public' ? 'direct' : 'prolific');
+
 // 1) Put your Google Apps Script (or other) endpoint here.
 // Leave null to disable server saving and only download locally.
 const DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24GqUkPeXqXpglNaCzmyhxCjY34ADFONUHVwwaiHf0ki7n3robQlFmYqQA/exec';
@@ -102,15 +135,19 @@ async function runSaveSmokeTest() {
     return;
   }
 
-  const prolific_pid = getUrlParam('PROLIFIC_PID') || 'smoke_test_pid';
-  const study_id = getUrlParam('STUDY_ID') || 'smoke_test_study';
-  const session_id = getUrlParam('SESSION_ID') || `smoke_${Math.random().toString(16).slice(2)}`;
+  const smokeParticipantId = participant_id || 'smoke_test_pid';
+  const smokeStudyId = study_id || 'smoke_test_study';
+  const smokeSessionId = session_id || `smoke_${Math.random().toString(16).slice(2)}`;
   const started_at = new Date().toISOString();
 
   const payload = {
-    prolific_pid,
-    study_id,
-    session_id,
+    participant_id: smokeParticipantId,
+    // Keep this legacy field populated because the existing Apps Script may use it.
+    prolific_pid: smokeParticipantId,
+    study_id: smokeStudyId,
+    session_id: smokeSessionId,
+    experiment_mode: EXPERIMENT_MODE,
+    recruitment_source,
     started_at,
     finished_at: new Date().toISOString(),
     user_agent: navigator.userAgent,
@@ -162,16 +199,17 @@ async function runSaveSmokeTest() {
 async function saveAllDataToServer(jsPsychInstance) {
   if (!DATA_SUBMIT_URL) return { ok: false, skipped: true, message: 'DATA_SUBMIT_URL not configured' };
 
-  const prolific_pid = jsPsychInstance.data.getURLVariable('PROLIFIC_PID') || null;
-  const study_id = jsPsychInstance.data.getURLVariable('STUDY_ID') || null;
-  const session_id = jsPsychInstance.data.getURLVariable('SESSION_ID') || null;
   const started_at = jsPsychInstance.data.get().first(1).values()?.[0]?.utc_start || null;
   const finished_at = new Date().toISOString();
 
   const payload = {
-    prolific_pid,
+    participant_id,
+    // Keep the existing Apps Script compatible while public participants use anonymous IDs.
+    prolific_pid: participant_id,
     study_id,
     session_id,
+    experiment_mode: EXPERIMENT_MODE,
+    recruitment_source,
     started_at,
     finished_at,
     user_agent: navigator.userAgent,
@@ -218,8 +256,9 @@ const jsPsych = initJsPsych({
     }
   },
   on_finish: async () => {
-    const prolific_pid = jsPsych.data.getURLVariable('PROLIFIC_PID') || 'test_subject';
-    const completionCode = getUrlParam('cc') || PROLIFIC_COMPLETION_CODE;
+    const completionCode = EXPERIMENT_MODE === 'prolific'
+      ? (getUrlParam('cc') || PROLIFIC_COMPLETION_CODE)
+      : null;
     const completionUrl = prolificCompleteUrl(completionCode);
 
     if (DATA_SUBMIT_URL) {
@@ -244,10 +283,10 @@ const jsPsych = initJsPsych({
       console.error('[ERROR] server save failed', e);
     }
 
-    // Fallback: local download (useful for piloting, not reliable for Prolific)
+    // Fallback: local download if the server request fails.
     if (!saved) {
       try {
-        jsPsych.data.get().localSave('csv', `data_${prolific_pid}.csv`);
+        jsPsych.data.get().localSave('csv', `data_${participant_id || 'test_subject'}.csv`);
       } catch (e) {
         console.error('[ERROR] localSave failed', e);
       }
@@ -259,14 +298,16 @@ const jsPsych = initJsPsych({
       return;
     }
 
-    // If no completion code configured, show a clear end screen.
+    // Public participants remain on a clear completion screen.
     const el = document.getElementById('jspsych-target');
     if (el) {
       el.innerHTML = `
         <div style="max-width:760px;margin:3rem auto;text-align:center;line-height:1.5;">
           <h2>Finished</h2>
           <p>Your responses have been recorded.</p>
-          <p><strong>Researcher note:</strong> set PROLIFIC_COMPLETION_CODE or add ?cc=XXXX to the URL to redirect participants back to Prolific.</p>
+          ${EXPERIMENT_MODE === 'public'
+          ? '<p>Thank you for taking part. You may now close this page.</p>'
+          : '<p><strong>Researcher note:</strong> set PROLIFIC_COMPLETION_CODE or add ?cc=XXXX to the URL to redirect participants back to Prolific.</p>'}
         </div>
       `;
     }
@@ -276,15 +317,15 @@ const jsPsych = initJsPsych({
 // Helpful for debugging: ensure we're collecting data at all.
 console.debug('[DEBUG] jsPsych initialized. Current timeline position will be shown in Data tab as trials run.');
 
-// Capture Prolific ID and other URL parameters
-const subject_id = jsPsych.data.getURLVariable('PROLIFIC_PID');
-const study_id = jsPsych.data.getURLVariable('STUDY_ID');
-const session_id = jsPsych.data.getURLVariable('SESSION_ID');
-
+// Add platform-neutral identifiers to every trial.
 jsPsych.data.addProperties({
-  subject_id: subject_id,
-  study_id: study_id,
-  session_id: session_id
+  subject_id: participant_id,
+  participant_id,
+  prolific_pid,
+  study_id,
+  session_id,
+  experiment_mode: EXPERIMENT_MODE,
+  recruitment_source
 });
 
 function shuffle(array) {
@@ -1023,13 +1064,13 @@ async function main() {
         
         <p><strong>Risks and Benefits:</strong> There are no known risks associated with this study beyond those encountered in daily life. There are no direct benefits to you, but your participation will contribute to scientific knowledge.</p>
         
-        <p><strong>Payment:</strong> You will receive payment as specified on the Prolific study page upon successful completion of the task.</p>
-        
-        <p><strong>Data Handling:</strong> Your data will be anonymous and identified only by your Prolific ID. The data will be stored securely and may be shared with other researchers in an anonymized form.</p>
-        
-        <p><strong>Right to Withdraw:</strong> Your participation is voluntary. You may withdraw at any time by closing the browser window without penalty, though you will not be paid if the task is not completed.</p>
-        
-        <p><strong>Contact:</strong> If you have any questions, please contact the researcher via the Prolific messaging system.</p>
+        ${EXPERIMENT_MODE === 'public'
+          ? '<p><strong>Payment:</strong> This public version does not provide automatic payment unless compensation was separately arranged with the researcher.</p><p><strong>Data Handling:</strong> Your responses are identified by a randomly generated participant ID rather than your name. The data will be stored securely and may be shared with other researchers in an anonymized form.</p>'
+          : '<p><strong>Payment:</strong> You will receive payment as specified on the Prolific study page upon successful completion of the task.</p><p><strong>Data Handling:</strong> Your data will be identified by your Prolific ID. The data will be stored securely and may be shared with other researchers in an anonymized form.</p>'}
+
+        <p><strong>Right to Withdraw:</strong> Your participation is voluntary. You may withdraw at any time by closing the browser window without penalty.</p>
+
+        <p><strong>Contact:</strong> If you have any questions, please contact ${EXPERIMENT_MODE === 'public' ? 'the researcher who shared this study link' : 'the researcher via the Prolific messaging system'}.</p>
         
         <p>By clicking "I Consent" below, you confirm that you have read this information and agree to participate.</p>
       </div>

@@ -17,13 +17,14 @@ This experiment is built with **jsPsych** and optimized for online data collecti
 - **Dual-Phase Methodology**:
   - **Rating Phase**: Participants rate 19 images on a 1-7 Likert scale.
   - **Preference Phase**: Measures preference judgments (-3 to +3) between a familiar stimulus (10th-ranked) and novel stimuli.
-- **Seamless Prolific Integration**: Automatically captures `PROLIFIC_PID`, `STUDY_ID`, and `SESSION_ID` from URL parameters.
+- **Public and Prolific Entry Points**: Supports anonymous public participation as well as Prolific URL identifiers.
 - **Scalable Data Backend**: Pre-configured to work with Google Sheets via Google Apps Script for easy data storage.
 
 ## 📂 Repository Structure
 
 ```text
-├── index.html          # Main entry point; loads jsPsych and core assets
+├── index.html          # Prolific entry point
+├── public.html         # Public entry point with anonymous participant IDs
 ├── experiment.js       # Core timeline logic, randomization, and UI helpers
 ├── questionnaires.js   # Definition of demographic and psychological surveys
 ├── stimuli.js          # Auto-generated manifest of image assets
@@ -88,6 +89,21 @@ Since GitHub Pages is static, you can use Google Apps Script as a lightweight ba
 ### 3. Prolific Setup
 Update the `PROLIFIC_COMPLETION_CODE` in `experiment.js` to ensure participants are redirected correctly after completion.
 
+### 4. Public Link
+Share `public.html` instead of `index.html`. Public visitors receive a persistent anonymous participant ID and a new session ID for each visit, are not redirected to Prolific, and see public consent and completion text.
+
+When GitHub Pages is enabled, the public URL is:
+
+```text
+https://cantonsir.github.io/online-f-n-task/public.html
+```
+
+Optionally record where participants found the study by adding `?source=...`, for example:
+
+```text
+https://cantonsir.github.io/online-f-n-task/public.html?source=email
+```
+
 ## 📊 Data Output
 
 The experiment generates detailed CSV-ready data for each trial:
@@ -96,7 +112,7 @@ The experiment generates detailed CSV-ready data for each trial:
 - `stimulus_label`: Identifier for the specific image.
 - `response`: The participant's rating or preference score.
 - `rt`: Reaction time in milliseconds.
-- `metadata`: Automatically captured Prolific IDs and session timing.
+- `metadata`: Participant ID, session ID, experiment mode, recruitment source, and session timing.
 
 ## 📄 License
 This project is licensed under the MIT License - see the `LICENSE` file for details.
