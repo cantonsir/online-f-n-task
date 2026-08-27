@@ -25,6 +25,8 @@ This experiment is built with **jsPsych** and optimized for online data collecti
 ```text
 ├── index.html          # Prolific entry point
 ├── public.html         # Public entry point with anonymous participant IDs
+├── demo.html           # Short, non-recording demonstration for papers and presentations
+├── demo.js             # Self-contained demonstration timeline; never submits data
 ├── experiment.js       # Core timeline logic, randomization, and UI helpers
 ├── questionnaires.js   # Definition of demographic and psychological surveys
 ├── stimuli.js          # Auto-generated manifest of image assets
@@ -103,6 +105,15 @@ Optionally record where participants found the study by adding `?source=...`, fo
 ```text
 https://cantonsir.github.io/online-f-n-task/public.html?source=email
 ```
+
+### 5. Non-recording Demonstration
+Use the short demonstration in papers, presentations, and teaching materials:
+
+```text
+https://cantonsir.github.io/online-f-n-task/demo.html
+```
+
+The demo presents the preview, rating, and familiar-versus-novel preference phases using a small geometry set. It does not request consent or demographics, create participant identifiers, use fullscreen mode, load questionnaires, or submit data to either backend.
 
 ## 📊 Data Output
 
