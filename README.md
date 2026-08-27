@@ -113,7 +113,7 @@ Use the short demonstration in papers, presentations, and teaching materials:
 https://cantonsir.github.io/online-f-n-task/demo.html
 ```
 
-The demo presents the preview, rating, and familiar-versus-novel preference phases using a small geometry set. It does not request consent or demographics, create participant identifiers, use fullscreen mode, load questionnaires, or submit data to either backend.
+The demo presents one geometry block with the original 19-image preview and rating sequence, 10th-ranked familiar-image selection, and three representative familiar-versus-novel trials. The full task uses 18 preference trials per set. The demo does not request consent or demographics, create participant identifiers, use fullscreen mode, load questionnaires, or submit data to either backend.
 
 ## 📊 Data Output
 
