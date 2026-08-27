@@ -65,9 +65,12 @@ const study_id = getUrlParam('STUDY_ID') || (EXPERIMENT_MODE === 'public' ? 'pub
 const session_id = getUrlParam('SESSION_ID') || (EXPERIMENT_MODE === 'public' ? createAnonymousId('session') : null);
 const recruitment_source = getUrlParam('source') || (EXPERIMENT_MODE === 'public' ? 'direct' : 'prolific');
 
-// 1) Put your Google Apps Script (or other) endpoint here.
-// Leave null to disable server saving and only download locally.
-const DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24GqUkPeXqXpglNaCzmyhxCjY34ADFONUHVwwaiHf0ki7n3robQlFmYqQA/exec';
+// 1) Keep public and Prolific responses in separate data stores.
+const PROLIFIC_DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbzQAkYMW6BQ24GqUkPeXqXpglNaCzmyhxCjY34ADFONUHVwwaiHf0ki7n3robQlFmYqQA/exec';
+const PUBLIC_DATA_SUBMIT_URL = 'https://script.google.com/macros/s/AKfycbx6ymNOn8xzHfQRi0hS5AjF8jmnmX-deRZbEOQstXDaCdVaGdlTf4czKLzB0gitwcCp/exec';
+const DATA_SUBMIT_URL = EXPERIMENT_MODE === 'public'
+  ? PUBLIC_DATA_SUBMIT_URL
+  : PROLIFIC_DATA_SUBMIT_URL;
 
 // 2) Put your Prolific completion code here.
 // You can also provide it as a URL param: ?cc=XXXXXX

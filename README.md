@@ -84,7 +84,7 @@ The task is ready to be hosted as a static site. Simply enable **GitHub Pages** 
 Since GitHub Pages is static, you can use Google Apps Script as a lightweight backend:
 - Create a Google Sheet and an Apps Script.
 - Deploy the script as a **Web App** (Access: "Anyone").
-- Set `DATA_SUBMIT_URL` in `experiment.js` to your script URL.
+- Set `PROLIFIC_DATA_SUBMIT_URL` and `PUBLIC_DATA_SUBMIT_URL` in `experiment.js` to their separate script URLs.
 
 ### 3. Prolific Setup
 Update the `PROLIFIC_COMPLETION_CODE` in `experiment.js` to ensure participants are redirected correctly after completion.
