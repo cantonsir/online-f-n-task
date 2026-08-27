@@ -43,13 +43,12 @@
     `;
   }
 
-  function preferenceHtml(familiar, novel, familiarOnLeft, trialNumber, trialTotal) {
+  function preferenceHtml(familiar, novel, familiarOnLeft) {
     const left = familiarOnLeft ? familiar : novel;
     const right = familiarOnLeft ? novel : familiar;
 
     return `
       <div class="preference-container" style="max-width:1100px;margin:0 auto;">
-        <div style="text-align:center;margin-bottom:1rem;font-weight:700;">Preference trial ${trialNumber} of ${trialTotal}</div>
         <div class="practice-grid" style="grid-template-columns:1fr 1fr;align-items:start;gap:2rem;">
           <div style="text-align:center;">
             <img src="${left.src}" alt="${left.label}" style="max-width:100%;height:auto;" />
@@ -357,7 +356,7 @@
     choices: [' ']
   });
 
-  set2.forEach((novel, preferenceIndex) => {
+  set2.forEach((novel) => {
     const familiarOnLeft = Math.random() < 0.5;
 
     timeline.push({
@@ -370,7 +369,7 @@
     timeline.push({
       type: jsPsychHtmlSliderResponse,
       css_classes: ['visual-task'],
-      stimulus: () => preferenceHtml(selectFamiliar(), novel, familiarOnLeft, preferenceIndex + 1, set2.length),
+      stimulus: () => preferenceHtml(selectFamiliar(), novel, familiarOnLeft),
       min: -3,
       max: 3,
       step: 0.01,
