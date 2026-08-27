@@ -105,7 +105,6 @@
   const shuffledSet = shuffle(geometryStimuli);
   const set1 = shuffledSet.slice(0, 19);
   const set2 = shuffledSet.slice(19, 37);
-  const demonstratedNovelStimuli = set2.slice(0, 3);
   const practiceStimulus = allStimuli.find((stimulus) => stimulus.category === 'natural_scene') || set2[3];
   const demoRatings = [];
 
@@ -152,8 +151,8 @@
       <div class="practice-container" style="text-align:left;line-height:1.65;max-width:800px;">
         <div style="display:inline-block;padding:.35rem .75rem;border:1px solid #72c7ff;border-radius:999px;color:#9dd9ff;font-weight:700;">Non-recording demonstration</div>
         <h1 style="margin-top:1.25rem;">Online familiarity–novelty task</h1>
-        <p>This demonstration follows one complete 19-image preview and rating block from the original task.</p>
-        <p>The original block contains 18 comparative trials; this demonstration shows three to reduce its duration.</p>
+        <p>This demonstration follows one complete Simple-symmetric geometry subcategory from the original task.</p>
+        <p>It includes the full 19-image preview and rating sequence followed by all 18 comparative trials.</p>
         <p>Consent, demographics, questionnaires, and fullscreen mode are omitted.</p>
         <p><strong>No responses, identifiers, or browser information are recorded or submitted.</strong></p>
       </div>
@@ -357,7 +356,7 @@
     choices: [' ']
   });
 
-  demonstratedNovelStimuli.forEach((novel) => {
+  set2.forEach((novel) => {
     const familiarOnLeft = Math.random() < 0.5;
 
     timeline.push({
@@ -388,7 +387,8 @@
     stimulus: `
       <div class="practice-container" style="text-align:center;line-height:1.6;">
         <h2>Demonstration Complete</h2>
-        <p>The full study continues with additional sets and 18 comparisons per set.</p>
+        <p>You have completed one full subcategory from the original task.</p>
+        <p>The full study continues with additional subcategories.</p>
         <p>Click below to finish and discard the in-memory demo responses.</p>
       </div>
     `,
